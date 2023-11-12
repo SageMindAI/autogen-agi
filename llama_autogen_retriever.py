@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from termcolor import colored
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
+from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
 
 from llama_index import (
     VectorStoreIndex,
@@ -102,7 +103,7 @@ from typing import Dict, Union
 
 
 
-CUSTOM_PROMPT = """You're a retrieve augmented chatbot. You ANSWER the USER_QUESTION based on your own knowledge and the
+CUSTOM_PROMPT = """You're a retrieve augmented chatbot. You ANSWER the USER_QUESTION based on the
 RELEVANT_CONTEXT provided by the user. You should follow the following steps to answer a question:
 Step 1, you estimate the user's intent based on the question and context. The intent can be a code generation task or
 a question answering task.
@@ -118,14 +119,14 @@ Rule 2. You must follow the formats below to write your code:
 If user's intent is question answering, you must give as short an answer as possible.
 
 RELAVANT_CONTEXT:
-----------------------------------------
+###----------------------------------------###
 {input_context}
-----------------------------------------
+###----------------------------------------###
 
 USER_QUESTION: 
-----------------------------------------
+###----------------------------------------###
 {input_question}
-----------------------------------------
+###----------------------------------------###
 ANSWER:
 """
 
@@ -168,12 +169,12 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
     def query_vector_db(self, query_texts, n_results=10, **kwargs) -> QueryResult: 
         # Implement your custom retrieval logic here using your vector database client
 
-        nodes = self.get_retrieved_nodes(str(query_texts), vector_top_k=n_results, reranker_top_n=4, rerank=False)
+        nodes = self.get_retrieved_nodes(str(query_texts), vector_top_k=n_results, reranker_top_n=20, rerank=True)
         retrieved_docs = [self.node_to_document(node) for node in nodes]
         return self.convert_documents_to_queryresult(retrieved_docs)
 
 
-    def retrieve_docs(self, problem: str, n_results: int = 5, search_string: str = "", **kwargs):
+    def retrieve_docs(self, problem: str, n_results: int = 40, search_string: str = "", **kwargs):
         results = self.query_vector_db(
             query_texts=problem,
             n_results=n_results,
@@ -216,21 +217,38 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
             self._doc_idx = idx
             self._doc_ids.append(results["ids"][0][idx])
             self._doc_contents.append(doc_text)
+            print("DOC_CONTENTS_LEN: ", len(self._doc_contents))
             _tmp_retrieve_count += 1
             if _tmp_retrieve_count >= self.n_results:
                 break
+        print("DOC_CONTENTS_LEN: ", len(self._doc_contents))
         return doc_contents
     
 
-    def get_retrieved_nodes(self, query_str, vector_top_k=10, reranker_top_n=4, rerank=True):
+    @staticmethod
+    def get_max_tokens(model="gpt-3.5-turbo"):
+        print("MODEL_TURBO: ", model)
+        if "preview" in model:
+            print("TURBO_BABY!!")
+            return 128000
+        elif "32k" in model:
+            return 32000
+        elif "16k" in model:
+            return 16000
+        elif "gpt-4" in model:
+            return 8000
+        else:
+            return 4000
+
+    def get_retrieved_nodes(self, query_str, vector_top_k=40, reranker_top_n=20, rerank=True):
         print(f"GETTING TOP NODES: {vector_top_k}")
-        print(f"GETTING RERANKED NODES: {reranker_top_n}")
         query_bundle = QueryBundle(query_str)
         # configure retriever
         retriever = VectorIndexRetriever(
             index=self.index,
             similarity_top_k=vector_top_k,
         )
+        print("RETRIEVING_NODES_WITH_QUERY: ", query_str)
         retrieved_nodes = retriever.retrieve(query_bundle)
 
         # print("RETRIEVED NODES:\n\n")
@@ -239,6 +257,7 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
         #     print("\n\n")
 
         if rerank:
+            print(f"GETTING RERANKED NODES: {reranker_top_n}")
             # configure reranker
             reranker = LLMRerank(
                 choice_batch_size=5,
