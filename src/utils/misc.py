@@ -6,7 +6,30 @@ DESCRIPTION: This file contains miscellaneous functions that are used in multipl
 import os
 import json
 import openai
+import autogen
+from autogen import OpenAIWrapper
 from time import sleep
+
+from llama_index.llms import OpenAI
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+config_list3 = [
+    {
+        "model": "gpt-3.5-turbo",
+        "api_key": os.environ["OPENAI_API_KEY"],
+    }
+]
+
+config_list4 = [
+    {
+        "model": "gpt-4-1106-preview",
+        "api_key": os.environ["OPENAI_API_KEY"],
+    }
+]
 
 
 def load_json(filename):
@@ -63,6 +86,11 @@ def light_llm_wrapper(llm, query):
 
     return response
 
+def light_llm4_wrapper(query):
+    llm4 = OpenAI(model="gpt-4-1106-preview", temperature=0.1)
+    return light_llm_wrapper(llm4, query)
+    
+
 def map_directory_to_json(dir_path):
     def dir_to_dict(path):
         dir_dict = {'name': os.path.basename(path)}
@@ -75,3 +103,64 @@ def map_directory_to_json(dir_path):
 
     root_structure = dir_to_dict(dir_path)
     return json.dumps(root_structure, indent=4)
+
+
+def remove_substring(string, substring):
+    return string.replace(substring, "")
+
+
+def fix_broken_json(potential_json, max_attempts=5):
+    FIX_JSON_PROMPT = f"""You are a helpful assistant. A user will ask a question, and you should provide an answer.
+    ONLY return the answer, and nothing more.
+    
+    Given the following potential JSON text, please fix any broken JSON syntax. Do NOT change the text itself. ONLY respond with the fixed JSON.
+
+    Potential JSON:
+    ---
+    {potential_json}
+    ---
+
+    Response:
+    """
+
+    attempts = 0
+    error = None
+    while attempts < max_attempts:
+        try:
+            attempts += 1
+            client = OpenAIWrapper(config_list=config_list3)
+            response = client.create(
+                messages=[{
+                    "role": "user",
+                    "content": FIX_JSON_PROMPT
+                }]
+            )
+            response = client.extract_text_or_function_call(response)
+            response = autogen.ConversableAgent._format_json_str(response)
+            response = json.loads(response)
+            return response
+        except Exception as error:
+            print("FIX ATTEMPT FAILED, TRYING AGAIN...", attempts)
+            error = error
+
+    raise error
+
+def extract_json_response_oai_wrapper(message):
+    client = OpenAIWrapper(config_list=config_list3)
+    response = client.extract_text_or_function_call(message)
+    response = autogen.ConversableAgent._format_json_str(response)
+    try:
+        response = json.loads(response)
+    except Exception as error:
+        response = fix_broken_json(response)
+
+    return response
+
+
+def extract_json_response(message):
+    try:
+        response = json.loads(message)
+    except Exception as error:
+        response = fix_broken_json(message)
+
+    return response

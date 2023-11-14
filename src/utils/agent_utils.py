@@ -1,5 +1,6 @@
 import autogen
 from autogen import OpenAIWrapper
+from .misc import fix_broken_json
 
 from dotenv import load_dotenv
 
@@ -21,43 +22,6 @@ config_list4 = [
         "api_key": os.environ["OPENAI_API_KEY"],
     }
 ]
-
-def fix_broken_json(potential_json, max_attempts=5):
-    FIX_JSON_PROMPT = f"""You are a helpful assistant. A user will ask a question, and you should provide an answer.
-    ONLY return the answer, and nothing more.
-    
-    Given the following potential JSON text, please fix any broken JSON syntax. Do NOT change the text itself. ONLY respond with the fixed JSON.
-
-    Potential JSON:
-    ---
-    {potential_json}
-    ---
-
-    Response:
-    """
-
-    attempts = 0
-    error = None
-    while attempts < max_attempts:
-        try:
-            attempts += 1
-            client = OpenAIWrapper(config_list=config_list3)
-            response = client.create(
-                messages=[{
-                    "role": "user",
-                    "content": FIX_JSON_PROMPT
-                }]
-            )
-            response = client.extract_text_or_function_call(response)
-            response = autogen.ConversableAgent._format_json_str(response)
-            response = json.loads(response)
-            return response
-        except Exception as error:
-            print("FIX ATTEMPT FAILED, TRYING AGAIN...", attempts)
-            error = error
-
-    raise error
-
 
 def get_end_intent(message):
 

@@ -1,0 +1,6 @@
+beautifulsoup4==4.12.2
+chromadb==0.4.17
+pyautogen==0.2.0b4
+python-dotenv==1.0.0
+langchain==0.0.334
+llama_index==0.8.69

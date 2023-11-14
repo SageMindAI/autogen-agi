@@ -1,7 +1,7 @@
 import autogen
 from autogen import GroupChat, GroupChatManager
 
-from better_group_chat import BetterGroupChat
+from better_group_chat import BetterGroupChat, BetterGroupChatManager
 
 from dotenv import load_dotenv
 
@@ -63,13 +63,23 @@ assistant2 = autogen.AssistantAgent(
 assistant3 = autogen.AssistantAgent(
     name="Coder",
     llm_config=llm_config4,
+    # code_execution_config={"last_n_messages": 5, "work_dir": 'TEST_DIR'},
+    # is_termination_msg=lambda x: get_end_intent(x) == "end",
+)
+
+assistant4 = autogen.AssistantAgent(
+    name="Executor",
+    system_message="You are an expert at executing code and NOTHING ELSE. Secifically you DO NOT write code. If any other agents provide a code block for you to execute, you must execute it and provide the output.",
+    llm_config=llm_config4,
     code_execution_config={"last_n_messages": 5, "work_dir": 'TEST_DIR'},
     # is_termination_msg=lambda x: get_end_intent(x) == "end",
 )
 
-groupchat = BetterGroupChat(agents=[user_proxy, assistant1, assistant2, assistant3], messages=[], max_round=12)
-manager = autogen.GroupChatManager(groupchat=groupchat, llm_config=llm_config4)
+groupchat = BetterGroupChat(agents=[user_proxy, assistant1, assistant2, assistant3, assistant4], messages=[], max_round=12)
+manager = BetterGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
 user_proxy.initiate_chat(manager, message="Please come up with a list of 10 excellent jokes for a standup comedy routine. They must appeal to an adult AND child audience. When you are satisfied that the jokes are sufficient, please provide a python script that will output one of the jokes at random when it is run.")
 
-# TODO: In the group chat, update each Agent system message to include a statement informing each agent that they are cooperating with other agents, and list the other agents. They should also be informed that their responses are sent to the Chat Manager who will determine which agent will recieve their response and speak next. Also, each message for each agent should ALWAYS begin with a header such as #### MESSAGE FROM AGENT: AgentName ####, otherwise each agent will assume that all the messages in the chat history are from themselves or the user.
+# TODO: In the group chat, update each Agent system message to include a statement informing each agent that they are cooperating with other agents, and list the other agents. They should also be informed that their responses are sent to the Chat Manager who will determine which agent will recieve their response and speak next. Also, each message for each agent should ALWAYS begin with a header such as ####\nSOURCE: AgentName\n####, otherwise each agent will assume that all the messages in the chat history are from themselves or the user.
+
+# TODO: Add the list of Agents in the "team" for each agent system message.
