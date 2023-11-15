@@ -26,23 +26,28 @@ class BetterGroupChat(GroupChat):
         max_round: int = 10,
         admin_name: str = "Admin",
         func_call_filter: bool = True,
+        summarize_agent_descriptions: bool = False,
         persona_discussion: bool = False,
         inject_persona_discussion: bool = False,
     ):
         super().__init__(agents, messages, max_round, admin_name, func_call_filter)
 
+        self.summarize_agent_descriptions = summarize_agent_descriptions
         self.persona_discussion = persona_discussion
         self.inject_persona_discussion = inject_persona_discussion
         self.agent_descriptions = []
         self.agent_team_description = ""
         for agent in agents:
-            description = light_llm4_wrapper(
-                AGENT_DESCRIPTION_SUMMARIZER.format(
-                    agent_system_message=agent.system_message
-                )
-            )
+            if self.summarize_agent_descriptions:
+                description = light_llm4_wrapper(
+                    AGENT_DESCRIPTION_SUMMARIZER.format(
+                        agent_system_message=agent.system_message
+                    )
+                ).text
+            else:
+                description = agent.system_message
             self.agent_descriptions.append(
-                {"name": agent.name, "description": description.text}
+                {"name": agent.name, "description": description}
             )
 
         self.agent_team_list = [
@@ -197,7 +202,7 @@ class BetterGroupChat(GroupChat):
             return self.agent_by_name(name)
         except ValueError:
             logger.warning(
-                f"GroupChat select_speaker failed to resolve the next speaker's name. Speaker selection will default to the UserProx if it exists, otherwise we defer to next speaker in the list. This is because the speaker selection OAI call returned:\n{name}"
+                f"GroupChat select_speaker failed to resolve the next speaker's name. Speaker selection will default to the UserProxy if it exists, otherwise we defer to next speaker in the list. This is because the speaker selection OAI call returned:\n{name}"
             )
             # Check if UserProxy exists in the agent list.
             for agent in agents:

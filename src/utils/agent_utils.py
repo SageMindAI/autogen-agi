@@ -25,11 +25,13 @@ config_list4 = [
 
 def get_end_intent(message):
 
-    TERMINATE_SYSTEM_MESSAGE = """You are an expert in text and sentiment analysis. Based on the provided text, please respond with whether the intent is to end the conversation or contintue the conversation. If the text provides all-caps statements such as "TERMINATE" or "CONTINUE", prioritize these when assesing intent. Your response MUST be in JSON format, with the following format:
+    TERMINATE_SYSTEM_MESSAGE = """You are an expert in text and sentiment analysis. Based on the provided text, please respond with whether the intent is to end/pause the conversation or contintue the conversation. If the text provides all-caps statements such as "TERMINATE" or "CONTINUE", prioritize these when assesing intent. Your response MUST be in JSON format, with the following format:
     {{
         "analysis": <your analysis of the text>,
         "intent": "end" or "continue"
     }}
+
+    NOTE: If the intent is to get feedback from the User or UserProxy, the intent should be "end".
 
     IMPORTANT: ONLY respond with the JSON object, and nothing else. If you respond with anything else, the system will not be able to understand your response.
 
