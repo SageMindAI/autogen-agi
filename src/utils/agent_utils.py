@@ -48,7 +48,7 @@ def get_end_intent(message):
         json_response = json.loads(json_response)
     except Exception as error:
         json_response = fix_broken_json(json_response)
-    print("JSON: ", json_response)
+    print("ANALYSIS: ", json_response["analysis"])
     print("INTENT:", json_response["intent"])
     return json_response["intent"]
 

@@ -35,11 +35,11 @@ llm_config4 = {
 
 
 user_proxy = autogen.UserProxyAgent(
-    name="User",
+    name="UserProxy",
     system_message="""You are a proxy for the user. You will be able to see the conversation between the assistants. You will ONLY be prompted when there is a need for human input or the conversation is over. If you are ever prompted directly for a resopnse, always respond with: 'Thank you for the help! I will now end the conversation so the user can respond.'
     
 !!!IMPORTANT: NEVER respond with anything other than the above message. If you do, the user will not be able to respond to the assistants.""",
-    human_input_mode="ALWAYS",
+    human_input_mode="TERMINATE",
     is_termination_msg=lambda x: get_end_intent(x) == "end",
     # code_execution_config={"last_n_messages": 3, "work_dir": 'TEST_DIR'},
     code_execution_config=False,
@@ -75,11 +75,9 @@ assistant4 = autogen.AssistantAgent(
     # is_termination_msg=lambda x: get_end_intent(x) == "end",
 )
 
-groupchat = BetterGroupChat(agents=[user_proxy, assistant1, assistant2, assistant3, assistant4], messages=[], max_round=12)
+groupchat = BetterGroupChat(agents=[user_proxy, assistant1, assistant2, assistant3, assistant4], messages=[], max_round=12, persona_discussion=True, inject_persona_discussion=True)
 manager = BetterGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
 user_proxy.initiate_chat(manager, message="Please come up with a list of 10 excellent jokes for a standup comedy routine. They must appeal to an adult AND child audience. When you are satisfied that the jokes are sufficient, please provide a python script that will output one of the jokes at random when it is run.")
 
-# TODO: In the group chat, update each Agent system message to include a statement informing each agent that they are cooperating with other agents, and list the other agents. They should also be informed that their responses are sent to the Chat Manager who will determine which agent will recieve their response and speak next. Also, each message for each agent should ALWAYS begin with a header such as ####\nSOURCE: AgentName\n####, otherwise each agent will assume that all the messages in the chat history are from themselves or the user.
-
-# TODO: Add the list of Agents in the "team" for each agent system message.
+# TODO: Add ability for the AGENT_COUNCIL to decide if a new agent should be created and added to the groupchat.

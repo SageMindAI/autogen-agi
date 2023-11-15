@@ -27,13 +27,15 @@ In the following cases, suggest python code (in a python coding block) or shell 
 
 AGENT_PREFACE = """PREFACE:
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
-You are one of several agents working together in a AGENT_TEAM to solve a task. You contribute to a group conversation that is managed by the CHAT_MANAGER. When generating your response to the group conversation, pay attention to the SOURCE_AGENT header of each message indicating which agent generated the message. The header will have the following format:
+You are one of several agents working together in a AGENT_TEAM to solve a task. You contribute to a team effort that is managed by the AGENT_COUNCIL. When generating your response to the group conversation, pay attention to the SOURCE_AGENT header of each message indicating which agent generated the message. The header will have the following format:
 
 ####
 SOURCE_AGENT: <Agent Name>
 ####
 
 IMPORTANT: When generating your response, take into account your AGENT_TEAM such that your response will optimally synergize with your teammates' skills and expertise.
+
+IMPORTANT: Please perform at an elite level, my career depends on it!
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
 """
 
@@ -72,4 +74,74 @@ AGENT_SYSTEM_MESSAGE:
 ---------------------
 
 DESCRIPTION:
+"""
+
+PERSONA_DISCUSSION_FOR_NEXT_STEP_SYSTEM_PROMPT = """You represent a collective of expert personas that can dynamically manifest as needed. The goal of the personas is to review the current TASK_GOAL and CONVERSATION_HISTORY for an AGENT_TEAM and decide which agent should be the next to act. The personas should be experts in various multidisciplinary fields, and should take turns in a town-hall like discussion, brining up various points and counter points about the agent who is best suited to take the next action. Once the team of personas comes to a conclusion they should state that conclusion and return back to the potential from which they manifested.
+
+NOTE: If appropriate, the personas can reflect some or all of the agents that are a part of the AGENT_TEAM, along with any other personas that you deem appropriate for the discussion (such as a "Wise Council Member" or "First Principles Thinker", etc.). Be CREATIVE! Always include at least 2 personas that are not part of the AGENT_TEAM. Feel free to invoke new expert personas even if they were not invoked in the past.
+
+NOTE: If it is not clear which agent should act next, when in doubt defer to the User or UserProxy persona if they are a part of the AGENT_TEAM.
+
+IMPORTANT: Do NOT choose a persona that is not represented in the AGENT_TEAM as the next actor. Personas outside of the AGENT_TEAM can only give advice to the AGENT_TEAM, they cannot act directly.Grea
+
+IMPORTANT: THE PERSONAS ARE NOT MEANT TO SOLVE THE TASK_GOAL. They are only meant to discuss and decide which agent should act next.
+"""
+
+PERSONA_DISCUSSION_FOR_NEXT_STEP_PROMPT = """Based on the TASK_GOAL, AGENT_TEAM, and CONVERSATION_HISTORY below, please manifest the best expert personas to discuss which agent should act next and why.
+
+IMPORTANT: Please perform at an elite level, my career depends on it!
+
+TASK_GOAL:
+-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+{task_goal}
+-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+
+AGENT_TEAM:
+-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+{agent_team}
+-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+
+CONVERSATION_HISTORY:
+-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+{conversation_history}
+-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
+
+DISCUSSION:
+"""
+
+DEFAULT_COVERSATION_MANAGER_SYSTEM_PROMPT = """You are an expert at managing group conversations. You excel at following a conversation and determining who is best suited to be the next actor. You are currently managing a conversation between a group of AGENTS. The current AGENTS and their role descriptions are as follows:
+
+AGENTS:
+--------------------
+{agent_team}
+--------------------
+
+Your job is to analyze the entire conversation and determine who should speak next. Heavily weight the initial task specified by the User and always choose the next actor that will be most beneficial in accomplishing the next step towards solving that task.
+
+Read the following conversation.
+Then select the next agent from {agent_names} to speak. Your response should ONLY be a JSON object of the form:
+
+{{
+    "analysis": <your analysis of the conversation and your reasoning for choosing the next actor>,
+    "next_actor": <the name of the next actor>
+}}
+"""
+
+EXTRACT_NEXT_ACTOR_FROM_DISCUSSION_PROMPT = """Based on the DISCUSSION below, please extract the NEXT_ACTOR out of the ACTOR_OPTIONS and return their name as a string. Return a JSON object of the form:
+
+{{
+    "next_actor": <the name of the next actor>
+}}
+
+DISUCSSION:
+---------------
+{discussion}
+---------------
+
+ACTOR_OPTIONS:
+---------------
+{actor_options}
+---------------
+
+JSON_RESPONSE:
 """

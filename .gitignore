@@ -1,0 +1,12 @@
+.envrc
+.direnv
+*/.streamlit/secrets.toml
+.mypy_cache
+__pycache__
+node_modules
+build
+index.json
+stored_documents.pkl
+.env
+author_storage/**/*
+* copy*
