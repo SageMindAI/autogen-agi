@@ -47,11 +47,15 @@ class BetterGroupChat(GroupChat):
             else:
                 description = agent.system_message
             self.agent_descriptions.append(
-                {"name": agent.name, "description": description}
+                {
+                    "name": agent.name,
+                    "description": description,
+                    "llm_config": agent.llm_config,
+                }
             )
 
         self.agent_team_list = [
-            f"{'*' * 20}\nAGENT_NAME: {agent['name']}\nAGENT_DESCRIPTION: {agent['description']}\n{'*' * 20}\n"
+            f"{'*' * 20}\nAGENT_NAME: {agent['name']}\nAGENT_DESCRIPTION: {agent['description']}\n{self.describe_agent_actions(agent)}{'*' * 20}\n"
             for agent in self.agent_descriptions
         ]
 
@@ -68,6 +72,22 @@ class BetterGroupChat(GroupChat):
             agent.update_system_message(
                 f"{AGENT_PREFACE_WITH_TEAM}\n\n{agent.system_message}"
             )
+
+    def describe_agent_actions(self, agent: ConversableAgent):
+        callable_functions = agent["llm_config"].get("functions", False)
+
+        if callable_functions:
+            AGENT_FUNCTION_LIST = f"AGENT_REGISTERED_FUNCTIONS:"
+            for function in callable_functions:
+                AGENT_FUNCTION_LIST += f"""
+----------------------------------------
+FUNCTION_NAME: {function["name"]}
+FUNCTION_DESCRIPTION: {function["description"]}
+FUNCTION_ARGUMENTS: {function["parameters"]}
+----------------------------------------\n"""
+            return AGENT_FUNCTION_LIST
+
+        return ""
 
     def select_speaker_msg(self, agents: List[Agent]):
         """Return the system message for selecting the next speaker."""
@@ -163,6 +183,8 @@ class BetterGroupChat(GroupChat):
             }
         ]
 
+        # print("GET NEXT ACTOR MESSAGE:", get_next_actor_message)
+
         final, response = selector.generate_oai_reply(get_next_actor_message)
         print("CHAT_MANAGER_RESPONSE:", response)
         if self.persona_discussion:
@@ -171,16 +193,10 @@ class BetterGroupChat(GroupChat):
 
                 header = f"####\nSOURCE_AGENT: AGENT_COUNCIL\n####"
                 response = f"{header}\n\n" + response
-                self.messages.append(
-                    {
-                        "role": "system",
-                        "content": response
-                    }
-                )
+                self.messages.append({"role": "system", "content": response})
                 # send the persona discussion to all agents
                 for agent in self.agents:
                     selector.send(response, agent, request_reply=False, silent=True)
-
 
             extracted_next_actor = light_llm4_wrapper(
                 EXTRACT_NEXT_ACTOR_FROM_DISCUSSION_PROMPT.format(
@@ -296,7 +312,8 @@ class BetterGroupChatManager(GroupChatManager):
             if reply is None:
                 break
             header = f"####\nSOURCE_AGENT: {speaker.name}\n####"
-            if header not in reply:
+            # check if reply is a string
+            if header not in reply and isinstance(reply, str):
                 reply = f"{header}\n\n" + reply
             # print("SENDING_REPLY:\n", reply)
             # The speaker sends the message without requesting a reply

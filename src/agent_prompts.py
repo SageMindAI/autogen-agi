@@ -43,7 +43,7 @@ IMPORTANT: Please perform at an elite level, my career depends on it!
 
 AGENT_TEAM_INTRO = """AGENT_TEAM:
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
-Below is a description of your agent teammates and their skills/expertise:
+Below is a description of the agent team and their skills/expertise:
 {agent_team_list}
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
 """
@@ -132,8 +132,12 @@ Then select the next agent from {agent_names} to speak. Your response should ONL
 EXTRACT_NEXT_ACTOR_FROM_DISCUSSION_PROMPT = """Based on the DISCUSSION below, please extract the NEXT_ACTOR out of the ACTOR_OPTIONS and return their name as a string. Return a JSON object of the form:
 
 {{
+    "analysis": <your analysis of the conversation and your reasoning for choosing the next actor>,
     "next_actor": <the name of the next actor>
 }}
+
+IMPORTANT: Follow the discussion carefully and make sure to extract the correct next_actor. If you are unsure, please return UserProxy as the next_actor.
+IMPORTANT: Please perform at an elite level, my career depends on it!
 
 DISUCSSION:
 ---------------
