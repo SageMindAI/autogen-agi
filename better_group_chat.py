@@ -1,6 +1,7 @@
 # filename: agent_better_group_chat.py
 import logging
 import sys
+import re
 from typing import Dict, List, Optional, Union
 
 from autogen import Agent, GroupChat, ConversableAgent, GroupChatManager
@@ -19,12 +20,13 @@ from src.utils.misc import light_llm4_wrapper, extract_json_response
 from colored import fg, bg, attr
 
 # Define colors for different log types
-COLOR_AGENT_COUNCIL_RESPONSE = fg('yellow') + attr('bold')
-COLOR_GET_NEXT_ACTOR_RESPONSE = fg('green') + attr('bold')
-COLOR_NEXT_ACTOR = fg('blue') + attr('bold')
-RESET_COLOR = attr('reset')
+COLOR_AGENT_COUNCIL_RESPONSE = fg("yellow") + attr("bold")
+COLOR_GET_NEXT_ACTOR_RESPONSE = fg("green") + attr("bold")
+COLOR_NEXT_ACTOR = fg("blue") + attr("bold")
+RESET_COLOR = attr("reset")
 
 logger = logging.getLogger(__name__)
+
 
 class BetterGroupChat(GroupChat):
     def __init__(
@@ -48,17 +50,23 @@ class BetterGroupChat(GroupChat):
 
         # Generate agent descriptions based on configuration
         for agent in agents:
-            description = (light_llm4_wrapper(
-                AGENT_DESCRIPTION_SUMMARIZER.format(
-                    agent_system_message=agent.system_message
-                )
-            ).text if self.summarize_agent_descriptions else agent.system_message)
+            description = (
+                light_llm4_wrapper(
+                    AGENT_DESCRIPTION_SUMMARIZER.format(
+                        agent_system_message=agent.system_message
+                    )
+                ).text
+                if self.summarize_agent_descriptions
+                else agent.system_message
+            )
 
-            self.agent_descriptions.append({
-                "name": agent.name,
-                "description": description,
-                "llm_config": agent.llm_config,
-            })
+            self.agent_descriptions.append(
+                {
+                    "name": agent.name,
+                    "description": description,
+                    "llm_config": agent.llm_config,
+                }
+            )
 
         # Create a formatted string of the agent team list
         self.agent_team_list = [
@@ -101,7 +109,22 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
         agent_names = [agent.name for agent in agents]
 
         if self.persona_discussion:
-            return PERSONA_DISCUSSION_FOR_NEXT_STEP_SYSTEM_PROMPT
+            all_agent_functions = []
+            # loop through each agent and get their functions
+            for agent in agents:
+                agent_functions = self.describe_agent_actions(
+                    {"llm_config": agent.llm_config}
+                )
+                if agent_functions:
+                    all_agent_functions.append(agent_functions)
+
+            agent_functions = "\n".join(all_agent_functions)
+            # Remove all instances of "AGENT_REGISTERED_FUNCTIONS:" from the agent_functions string
+            agent_functions = agent_functions.replace("AGENT_REGISTERED_FUNCTIONS:", "")
+
+            return PERSONA_DISCUSSION_FOR_NEXT_STEP_SYSTEM_PROMPT.format(
+                agent_functions=agent_functions,
+            )
         else:
             return DEFAULT_COVERSATION_MANAGER_SYSTEM_PROMPT.format(
                 agent_team=agent_team,
@@ -180,7 +203,9 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
         ]
 
         final, response = selector.generate_oai_reply(get_next_actor_message)
-        print(f"{COLOR_AGENT_COUNCIL_RESPONSE}AGENT_COUNCIL_RESPONSE:{RESET_COLOR}\n{response}\n")
+        print(
+            f"{COLOR_AGENT_COUNCIL_RESPONSE}AGENT_COUNCIL_RESPONSE:{RESET_COLOR}\n{response}\n"
+        )
         if self.persona_discussion:
             if self.inject_persona_discussion:
                 # Inject the persona discussion into the message history
@@ -198,7 +223,9 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                 )
             )
             response_json = extract_json_response(extracted_next_actor)
-            print(f"{COLOR_GET_NEXT_ACTOR_RESPONSE}GET_NEXT_ACTOR_RESPONSE:{RESET_COLOR} \n{response_json['analysis']}")
+            print(
+                f"{COLOR_GET_NEXT_ACTOR_RESPONSE}GET_NEXT_ACTOR_RESPONSE:{RESET_COLOR} \n{response_json['analysis']}"
+            )
             name = response_json["next_actor"]
         else:
             response_json = extract_json_response(response)
@@ -296,11 +323,26 @@ class BetterGroupChatManager(GroupChatManager):
                     raise
             if reply is None:
                 break
-            header = f"####\nSOURCE_AGENT: {speaker.name}\n####"
+
             # Check if reply is a string
-            if header not in reply and isinstance(reply, str):
+            if isinstance(reply, str):
+                header = f"####\nSOURCE_AGENT: {speaker.name}\n####"
+                reply = self.remove_agent_pattern(reply)
                 reply = f"{header}\n\n" + reply
             # The speaker sends the message without requesting a reply
             speaker.send(reply, self, request_reply=False)
             message = self.last_message(speaker)
         return True, None
+
+    def remove_agent_pattern(self, input_string):
+        """
+        Removes the pattern "####\nSOURCE_AGENT: <Agent Name>\n####" from the input string.
+        `<Agent Name>` is a placeholder and can vary.
+        """
+        # Define the regular expression pattern to match the specified string
+        pattern = r"####\nSOURCE_AGENT: .*\n####"
+
+        # Use regular expression to substitute the pattern with an empty string
+        modified_string = re.sub(pattern, "", input_string)
+
+        return modified_string

@@ -31,7 +31,9 @@ When you find an answer, verify the answer carefully. Include verifiable evidenc
 
 IMPORTANT: You should only write code if that either integral to the solution of the task or if it is necessary to gather information for the solution of the task. If FunctionCallingExpert agent has a function registered that can solve the current task or subtask, you should suggest that function instead of writing code.
 
-IMPORTANT: ALWAYS provide the FULL CODE. Do not provide partial code or comments such as: "# Other class and method definitions remain unchanged..." or "# ... (previous code remains unchanged)". If the code is too long, break it into multiple files and provide all the files sequentially.
+IMPORTANT: ALWAYS provide the FULL CODE. Do not provide partial code or comments such as: "# Other class and method definitions remain unchanged..." or "# ... (previous code remains unchanged) or "# ... (remaining code remains unchanged)". If the code is too long, break it into multiple files and provide all the files sequentially.
+
+FINAL REMINDER: ALWAYS RETURN FULL CODE. DO NOT RETURN PARTIAL CODE.
 
 """
 
@@ -90,16 +92,27 @@ PERSONA_DISCUSSION_FOR_NEXT_STEP_SYSTEM_PROMPT = """You represent a collective o
 
 NOTE: If appropriate, the personas can reflect some or all of the agents that are a part of the AGENT_TEAM, along with any other personas that you deem appropriate for the discussion (such as a "Wise Council Member" or "First Principles Thinker", etc.). Be CREATIVE! Always include at least 2 personas that are not part of the AGENT_TEAM. Feel free to invoke new expert personas even if they were not invoked in the past.
 
+The agents have certain functions registered to them that they can perform. The functions are as follows:
+
+AGENT_FUNCTIONS:
+--------------------
+{agent_functions}
+--------------------
+
 NOTE: If it is not clear which agent should act next, when in doubt defer to the User or UserProxy persona if they are a part of the AGENT_TEAM.
 
 IMPORTANT: Do NOT choose a persona that is not represented in the AGENT_TEAM as the next actor. Personas outside of the AGENT_TEAM can only give advice to the AGENT_TEAM, they cannot act directly.
 
 IMPORTANT: THE PERSONAS ARE NOT MEANT TO SOLVE THE TASK_GOAL. They are only meant to discuss and decide which agent should act next.
 
+IMPORTANT: DO NOT provide "background" statements that are meant to inform the user about the actions of agents such as "[PythonExpert provides the complete and compilable code for `better_group_chat.py`.]". The personas are only meant to discuss and decide which agent should act next, not take action themselves.
+
 IMPORTANT: Please follow your system prompt and perform at an elite level, my career depends on it!
 """
 
 PERSONA_DISCUSSION_FOR_NEXT_STEP_PROMPT = """Based on the TASK_GOAL, AGENT_TEAM, and CONVERSATION_HISTORY below, please manifest the best expert personas to discuss which agent should act next and why.
+
+IMPORTANT: ONLY return the DISCUSSION, and nothing more (for example, insight into agents working in the background). If you respond with anything else, the system will not be able to understand your response.
 
 IMPORTANT: Please perform at an elite level, my career depends on it!
 
