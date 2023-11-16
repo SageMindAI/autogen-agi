@@ -69,7 +69,7 @@ user_proxy = autogen.UserProxyAgent(
 
 assistant1 = autogen.AssistantAgent(
     name="CodeReviewer",
-    system_message="You are an expert at reviewing code and suggesting improvements.",
+    system_message="""You are an expert at reviewing code and suggesting improvements. Pay particluar attention to any potential syntax errors. Also, remind the Coding agent that they should always provide FULL and COMPLILABLE code and not shorten code blocks with comments such as '# Other class and method definitions remain unchanged...' or '# ... (previous code remains unchanged)'.""",
     llm_config=llm_config4,
     # is_termination_msg=lambda x: get_end_intent(x) == "end",
 )
@@ -188,6 +188,8 @@ def save_file(file_path, file_contents):
     with open(resolved_path, "w") as f:
         f.write(file_contents)
 
+    return f"File saved to {resolved_path}."
+
 
 code_execution_agent = autogen.AssistantAgent(
     name="CodeExecutionAgent",
@@ -230,7 +232,7 @@ manager = BetterGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
 user_proxy.initiate_chat(
     manager,
-    message="""I have a python file that I need cleaning up. The file is located at ./better_group_chat.py. Please clean up the file apply best code practices and good commenting without changing the functionality. I would also like to improve some logs to look better with some color and formatting. Lets use the "colored" python package to do this. Lets keep/refactor the following logs: CHAT_MANAGER_RESPONSE, GET_NEXT_ACTOR_RESPONSE (but only print the "analysis" property), and NEXT_SPEAKER. When you're done please save the file for me to review. """,
+    message="""I have a python file that I need cleaning up. The file is located at ./better_group_chat.py. Please clean up the file apply best code practices and good commenting without changing the functionality. I would also like to improve some logs to look better with some color and formatting. Lets use the "colored" python package to do this. Lets keep/refactor the following logs: CHAT_MANAGER_RESPONSE, GET_NEXT_ACTOR_RESPONSE (but only print the "analysis" property), and NEXT_SPEAKER. When you're done please save the file under "agent_better_group_chat.py" for me to review. """,
 )
 
 # TODO: Add ability for the AGENT_COUNCIL to decide if a new agent should be created and added to the groupchat.

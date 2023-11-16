@@ -1,9 +1,9 @@
-from typing import Dict, List, Optional, Union
-from autogen import Agent, GroupChat, ConversableAgent, GroupChatManager
+# filename: agent_better_group_chat.py
 import logging
 import sys
-import pprint
+from typing import Dict, List, Optional, Union
 
+from autogen import Agent, GroupChat, ConversableAgent, GroupChatManager
 from src.agent_prompts import (
     AGENT_PREFACE,
     AGENT_TEAM_INTRO,
@@ -15,8 +15,16 @@ from src.agent_prompts import (
 )
 from src.utils.misc import light_llm4_wrapper, extract_json_response
 
-logger = logging.getLogger(__name__)
+# Configure logging with color using the 'colored' package
+from colored import fg, bg, attr
 
+# Define colors for different log types
+COLOR_AGENT_COUNCIL_RESPONSE = fg('yellow') + attr('bold')
+COLOR_GET_NEXT_ACTOR_RESPONSE = fg('green') + attr('bold')
+COLOR_NEXT_ACTOR = fg('blue') + attr('bold')
+RESET_COLOR = attr('reset')
+
+logger = logging.getLogger(__name__)
 
 class BetterGroupChat(GroupChat):
     def __init__(
@@ -37,37 +45,35 @@ class BetterGroupChat(GroupChat):
         self.inject_persona_discussion = inject_persona_discussion
         self.agent_descriptions = []
         self.agent_team_description = ""
-        for agent in agents:
-            if self.summarize_agent_descriptions:
-                description = light_llm4_wrapper(
-                    AGENT_DESCRIPTION_SUMMARIZER.format(
-                        agent_system_message=agent.system_message
-                    )
-                ).text
-            else:
-                description = agent.system_message
-            self.agent_descriptions.append(
-                {
-                    "name": agent.name,
-                    "description": description,
-                    "llm_config": agent.llm_config,
-                }
-            )
 
+        # Generate agent descriptions based on configuration
+        for agent in agents:
+            description = (light_llm4_wrapper(
+                AGENT_DESCRIPTION_SUMMARIZER.format(
+                    agent_system_message=agent.system_message
+                )
+            ).text if self.summarize_agent_descriptions else agent.system_message)
+
+            self.agent_descriptions.append({
+                "name": agent.name,
+                "description": description,
+                "llm_config": agent.llm_config,
+            })
+
+        # Create a formatted string of the agent team list
         self.agent_team_list = [
             f"{'*' * 20}\nAGENT_NAME: {agent['name']}\nAGENT_DESCRIPTION: {agent['description']}\n{self.describe_agent_actions(agent)}{'*' * 20}\n"
             for agent in self.agent_descriptions
         ]
 
+        # Introduce the agent team
         agent_team_intro = AGENT_TEAM_INTRO.format(
             agent_team_list="\n".join(self.agent_team_list)
         )
 
         AGENT_PREFACE_WITH_TEAM = f"{AGENT_PREFACE}\n\n{agent_team_intro}"
 
-        print("AGENT_PREFACE_WITH_TEAM: ", AGENT_PREFACE_WITH_TEAM)
-
-        # Loop through each agent and prepend the AGENT_PREFACE to their system message
+        # Update each agent's system message with the team preface
         for agent in agents:
             agent.update_system_message(
                 f"{AGENT_PREFACE_WITH_TEAM}\n\n{agent.system_message}"
@@ -76,10 +82,8 @@ class BetterGroupChat(GroupChat):
     def describe_agent_actions(self, agent: ConversableAgent):
         callable_functions = agent["llm_config"].get("functions", False)
 
-        print("CALLABLE_FUNCTIONS: ", callable_functions)
-
         if callable_functions:
-            AGENT_FUNCTION_LIST = f"AGENT_REGISTERED_FUNCTIONS:"
+            AGENT_FUNCTION_LIST = "AGENT_REGISTERED_FUNCTIONS:"
             for function in callable_functions:
                 AGENT_FUNCTION_LIST += f"""
 ----------------------------------------
@@ -125,7 +129,7 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
             and self.messages
             and "function_call" in self.messages[-1]
         ):
-            # find agents with the right function_map which contains the function name
+            # Find agents with the right function_map which contains the function name
             agents = [
                 agent
                 for agent in self.agents
@@ -134,10 +138,10 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                 )
             ]
             if len(agents) == 1:
-                # only one agent can execute the function
+                # Only one agent can execute the function
                 return agents[0]
             elif not agents:
-                # find all the agents with function_map
+                # Find all the agents with function_map
                 agents = [agent for agent in self.agents if agent.function_map]
                 if len(agents) == 1:
                     return agents[0]
@@ -157,16 +161,6 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
 
         selector.update_system_message(self.select_speaker_msg(agents))
 
-        print("SELECTOR: ", selector.name)
-        # print("SELECTOR_SYSTEM_MESSAGE: ", selector.system_message)
-        # print("MESSAGES: ", self.messages
-        #     + [
-        #         {
-        #             "role": "system",
-        #             "content": f"Read the above conversation. Then select the next agent from {[agent.name for agent in agents]} to speak. Only return the agent.",
-        #         }
-        #     ])
-
         get_next_actor_message = ""
 
         if self.persona_discussion:
@@ -185,18 +179,15 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
             }
         ]
 
-        # print("GET NEXT ACTOR MESSAGE:", get_next_actor_message)
-
         final, response = selector.generate_oai_reply(get_next_actor_message)
-        print("CHAT_MANAGER_RESPONSE:", response)
+        print(f"{COLOR_AGENT_COUNCIL_RESPONSE}AGENT_COUNCIL_RESPONSE:{RESET_COLOR}\n{response}\n")
         if self.persona_discussion:
             if self.inject_persona_discussion:
                 # Inject the persona discussion into the message history
-
                 header = f"####\nSOURCE_AGENT: AGENT_COUNCIL\n####"
                 response = f"{header}\n\n" + response
                 self.messages.append({"role": "system", "content": response})
-                # send the persona discussion to all agents
+                # Send the persona discussion to all agents
                 for agent in self.agents:
                     selector.send(response, agent, request_reply=False, silent=True)
 
@@ -207,15 +198,12 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                 )
             )
             response_json = extract_json_response(extracted_next_actor)
-            print("GET_NEXT_ACTOR_RESPONSE: \n", response_json)
+            print(f"{COLOR_GET_NEXT_ACTOR_RESPONSE}GET_NEXT_ACTOR_RESPONSE:{RESET_COLOR} \n{response_json['analysis']}")
             name = response_json["next_actor"]
         else:
             response_json = extract_json_response(response)
             name = response_json["next_actor"]
-        print("FINAL: ", final)
-        print("NAME: ", name)
         if not final:
-            # i = self._random.randint(0, len(self._agent_names) - 1)  # randomly pick an id
             return self.next_agent(last_speaker, agents)
         try:
             return self.agent_by_name(name)
@@ -237,7 +225,6 @@ class BetterGroupChatManager(GroupChatManager):
         self,
         groupchat: BetterGroupChat,
         name: Optional[str] = "chat_manager",
-        # unlimited consecutive auto reply by default
         max_consecutive_auto_reply: Optional[int] = sys.maxsize,
         human_input_mode: Optional[str] = "NEVER",
         system_message: Optional[str] = "Group chat manager.",
@@ -251,7 +238,7 @@ class BetterGroupChatManager(GroupChatManager):
             system_message=system_message,
             **kwargs,
         )
-        # empty the self._reply_func_list
+        # Empty the self._reply_func_list
         self._reply_func_list = []
         self.register_reply(
             Agent,
@@ -279,46 +266,40 @@ class BetterGroupChatManager(GroupChatManager):
         message = messages[-1]
         speaker = sender
         groupchat = config
-        print("RUN_CHAT")
         for i in range(groupchat.max_round):
-            # set the name to speaker's name if the role is not function
+            # Set the name to speaker's name if the role is not function
             if message["role"] != "function":
                 message["name"] = speaker.name
-            # add the agent header to the message
+            # Add the agent header to the message
             groupchat.messages.append(message)
-            # print("APPENDED_MESSAGE: ", message)
-            print("SENDING_MESSAGE_FROM_SPEAKER: ", speaker.name)
-            # print("GROUPCHAT_MESSAGES:\n")
-            # pprint.pprint(groupchat.messages)
-            # broadcast the message to all agents except the speaker
+            # Broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
                 if agent != speaker:
                     self.send(message, agent, request_reply=False, silent=True)
             if i == groupchat.max_round - 1:
-                # the last round
+                # The last round
                 break
             try:
-                # select the next speaker
+                # Select the next speaker
                 speaker = groupchat.select_speaker(speaker, self)
-                print("NEXT_SPEAKER: ", speaker.name)
-                # let the speaker speak
+                print(f"{COLOR_NEXT_ACTOR}NEXT_ACTOR:{RESET_COLOR} {speaker.name}\n")
+                # Let the speaker speak
                 reply = speaker.generate_reply(sender=self)
             except KeyboardInterrupt:
-                # let the admin agent speak if interrupted
+                # Let the admin agent speak if interrupted
                 if groupchat.admin_name in groupchat.agent_names:
-                    # admin agent is one of the participants
+                    # Admin agent is one of the participants
                     speaker = groupchat.agent_by_name(groupchat.admin_name)
                     reply = speaker.generate_reply(sender=self)
                 else:
-                    # admin agent is not found in the participants
+                    # Admin agent is not found in the participants
                     raise
             if reply is None:
                 break
             header = f"####\nSOURCE_AGENT: {speaker.name}\n####"
-            # check if reply is a string
+            # Check if reply is a string
             if header not in reply and isinstance(reply, str):
                 reply = f"{header}\n\n" + reply
-            # print("SENDING_REPLY:\n", reply)
             # The speaker sends the message without requesting a reply
             speaker.send(reply, self, request_reply=False)
             message = self.last_message(speaker)

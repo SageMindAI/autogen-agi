@@ -31,6 +31,8 @@ When you find an answer, verify the answer carefully. Include verifiable evidenc
 
 IMPORTANT: You should only write code if that either integral to the solution of the task or if it is necessary to gather information for the solution of the task. If FunctionCallingExpert agent has a function registered that can solve the current task or subtask, you should suggest that function instead of writing code.
 
+IMPORTANT: ALWAYS provide the FULL CODE. Do not provide partial code or comments such as: "# Other class and method definitions remain unchanged..." or "# ... (previous code remains unchanged)". If the code is too long, break it into multiple files and provide all the files sequentially.
+
 """
 
 AGENT_PREFACE = """PREFACE:
