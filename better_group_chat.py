@@ -76,6 +76,8 @@ class BetterGroupChat(GroupChat):
     def describe_agent_actions(self, agent: ConversableAgent):
         callable_functions = agent["llm_config"].get("functions", False)
 
+        print("CALLABLE_FUNCTIONS: ", callable_functions)
+
         if callable_functions:
             AGENT_FUNCTION_LIST = f"AGENT_REGISTERED_FUNCTIONS:"
             for function in callable_functions:
@@ -205,6 +207,7 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                 )
             )
             response_json = extract_json_response(extracted_next_actor)
+            print("GET_NEXT_ACTOR_RESPONSE: \n", response_json)
             name = response_json["next_actor"]
         else:
             response_json = extract_json_response(response)
