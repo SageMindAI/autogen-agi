@@ -6,7 +6,10 @@ from src.agent_prompts import (
     FUNCTION_CALLING_AGENT_SYSTEM_PROMPT,
     USER_PROXY_SYSTEM_PROMPT,
     AGENT_AWARENESS_SYSTEM_PROMPT,
+    ARCHIVE_AGENT_MATCH_DOMAIN_MESSAGE,
 )
+
+from autogen import OpenAIWrapper
 
 # NOTE: AssistantAgent and UserProxyAgent are small wrappers around ConversableAgent.
 
@@ -16,8 +19,14 @@ load_dotenv()
 
 import os
 import copy
+import json
 
 from src.utils.agent_utils import get_end_intent
+from src.utils.misc import (
+    light_llm_wrapper,
+    light_gpt4_wrapper_autogen,
+    get_informed_answer,
+)
 
 config_list3 = [
     {
@@ -40,6 +49,8 @@ llm_config4 = {
 }
 
 WORK_DIR = "NEW_TEST_DIR"
+DOMAIN_KNOWLEDGE_DOCS_DIR = "docs"
+DOMAIN_KNOWLEDGE_STORAGE_DIR = "storage"
 
 user_proxy = autogen.UserProxyAgent(
     name="UserProxy",
@@ -120,24 +131,26 @@ functions = [
         },
     },
     # TODO: This function should search the "DOMAIN_KNOWLEDGE_DIR", scan all sub-directories, read in their "description.txt" content, see if any directories match the domain, and return that directory name if it exists. Otherwise it should (optionally) spawn a new task to create that domain directory, find the best resource online for that domain, and save the information (html, pdf, etc.) to that directory. After this process, the "domain expert" will give a RAG response.
-    # {
-    #     "name": "consult_domain_expert",
-    #     "description": """Ask a question to an expert in a field.""",
-    #     "parameters": {
-    #         "type": "object",
-    #         "properties": {
-    #             "domain": {
-    #                 "type": "string",
-    #                 "description": f"The domain of the expert.",
-    #             },
-    #             "question": {
-    #                 "type": "string",
-    #                 "description": f"The question to ask the expert.",
-    #             },
-    #         },
-    #         "required": ["file_path"],
-    #     },
-    # },
+    ## OOORR: We have an "archive" bot that excells in searching for relevant information, and a "research" bot that excells in finding resources online and downloading them for the "archive" bot to process.
+    # TODO: Give the agents the entire documenation of the "agent hierarchy" plan in their system message
+    {
+        "name": "consult_archive_agent",
+        "description": """Ask a question to the archive agent. The archive agent has access to certain specific domain knowledge. The agent will search for any available domain knowledge that matches the domain related to the question and use that knowledge to formulate their response. The domains are generally very specific and niche content that would most likely be outside of GPT4 knowledge (such as detailed technical/api documentation).""",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "domain_description": {
+                    "type": "string",
+                    "description": f"The description of the domain of knowledge. The expert will use this description to do a similarity check against the available domain descriptions.",
+                },
+                "question": {
+                    "type": "string",
+                    "description": f"The question to ask the archive agent. Make sure you are explicit, specific, and detailed in your question.",
+                },
+            },
+            "required": ["domain_description", "question"],
+        },
+    },
 ]
 
 
@@ -174,6 +187,51 @@ def execute_code_block(lang, code_block):
     return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
 
+def consult_archive_agent(domain_description, question):
+    # Traverse the first level of DOMAIN_KNOWLEDGE_DOCS_DIR and find the best match for the domain_description
+    domain_descriptions = []
+    for root, dirs, files in os.walk(DOMAIN_KNOWLEDGE_DOCS_DIR):
+        print("FOUND DIRS:", dirs, root, files)
+        for dir in dirs:
+            # Get the files in the directory
+            domain_name = dir
+            for file in os.listdir(os.path.join(root, dir)):
+                if file == "domain_description.txt":
+                    with open(os.path.join(root, dir, file), "r") as f:
+                        domain_descriptions.append(
+                            {"domain_name": domain_name, "domain_description": f.read()}
+                        )
+        break
+
+    # Convert the list of domain descriptions to a string
+    str_desc = ""
+    for desc in domain_descriptions:
+        str_desc += f"Domain: {desc['domain_name']}\n\nDescription:\n{'*' * 50}\n{desc['domain_description']}\n{'*' * 50}\n\n"
+
+    find_domain_query = ARCHIVE_AGENT_MATCH_DOMAIN_MESSAGE.format(
+        domain_description=domain_description,
+        available_domains=str_desc,
+    )
+
+    domain_response = light_gpt4_wrapper_autogen(find_domain_query, return_json=True)
+    print("DOMAIN_SEARCH_ANALYSIS:\n", domain_response["analysis"])
+    domain = domain_response["domain"]
+    domain_description = domain_response["domain_description"]
+    print("\nDOMAIN:", domain)
+    print("\nDOMAIN_DESCRIPTION:\n", domain_description)
+
+    if domain is None:
+        return f"Domain not found for domain description: {domain_description}"
+
+    return get_informed_answer(
+        domain=domain,
+        domain_description=domain_description,
+        question=question,
+        docs_dir=DOMAIN_KNOWLEDGE_DOCS_DIR,
+        storage_dir=DOMAIN_KNOWLEDGE_STORAGE_DIR,
+    )
+
+
 function_llm_config = copy.deepcopy(llm_config4)
 function_llm_config["functions"] = functions
 
@@ -185,6 +243,7 @@ function_calling_expert = autogen.AssistantAgent(
         "read_file": read_file,
         "save_file": save_file,
         "execute_code_block": execute_code_block,
+        "consult_archive_agent": consult_archive_agent,
     },
 )
 
@@ -208,8 +267,7 @@ manager = BetterGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
 # message = """Please execute the file to show that it works."""
 
-message = """Please write a script that pulls a random wikipedia article, saves it to a file, and prints the title.
-"""
+message = """How do I route requests to specific indexes using llama_index?"""
 
 user_proxy.initiate_chat(
     manager,

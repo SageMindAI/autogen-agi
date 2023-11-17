@@ -9,8 +9,7 @@ from typing import Dict, List, Optional, Union
 
 from autogen import Agent, GroupChat, ConversableAgent, GroupChatManager
 from src.agent_prompts import (
-    AGENT_PREFACE,
-    AGENT_TEAM_INTRO,
+    AGENT_SYSTEM_MESSAGE,
     AGENT_DESCRIPTION_SUMMARIZER,
     DEFAULT_COVERSATION_MANAGER_SYSTEM_PROMPT,
     PERSONA_DISCUSSION_FOR_NEXT_STEP_SYSTEM_PROMPT,
@@ -59,7 +58,9 @@ class BetterGroupChat(GroupChat):
 
         # Set start time to current time formatted like "2021-08-31_15-00-00"
         self.start_time = time.time()
-        self.start_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(self.start_time))
+        self.start_time = time.strftime(
+            "%Y-%m-%d_%H-%M-%S", time.localtime(self.start_time)
+        )
 
         # Load in the chat history if continue_chat is True
         # if self.continue_chat:
@@ -92,17 +93,44 @@ class BetterGroupChat(GroupChat):
         ]
 
         # Introduce the agent team
-        agent_team_intro = AGENT_TEAM_INTRO.format(
-            agent_team_list="\n".join(self.agent_team_list)
-        )
+        # agent_team_description = AGENT_TEAM_DESCRIPTION.format(
+        #     agent_team_list="\n".join(self.agent_team_list)
+        # )
 
-        AGENT_PREFACE_WITH_TEAM = f"{AGENT_PREFACE}\n\n{agent_team_intro}"
+        # AGENT_SYSTEM_MESSAGE_WITH_TEAM = f"{AGENT_SYSTEM_MESSAGE}\n\n{agent_team_description}"
 
         # Update each agent's system message with the team preface
         for agent in agents:
-            agent.update_system_message(
-                f"{AGENT_PREFACE_WITH_TEAM}\n\n{agent.system_message}"
+            # Create the agent_team_list again, but without the agent's own description (just say: "THIS IS YOU")
+            agent_specific_team_list = [
+                ""
+                if agent.name == agent_description["name"]
+                else f"{'*' * 100}\nAGENT_NAME: {agent_description['name']}\nAGENT_DESCRIPTION: {agent_description['description']}\n{self.describe_agent_actions(agent_description)}{'*' * 100}\n"
+                for agent_description in self.agent_descriptions
+            ]
+
+            # Get the agent_description for the current agent
+            agent_description = [
+                agent_description
+                for agent_description in self.agent_descriptions
+                if agent_description["name"] == agent.name
+            ][0]
+
+            # Agent system message with team info
+            agent_system_message = AGENT_SYSTEM_MESSAGE.format(
+                agent_team_list="\n".join(agent_specific_team_list),
+                agent_name=agent.name,
+                agent_description=agent.system_message,
+                agent_function_list=self.describe_agent_actions(agent_description),
             )
+
+            agent.update_system_message(agent_system_message)
+
+        # display each agent's system message
+        # for agent in agents:
+        #     print(
+        #         f"{COLOR_INFO}AGENT_SYSTEM_MESSAGE:{RESET_COLOR}\n{agent.system_message}\n\n\n\n"
+        #     )
 
     def describe_agent_actions(self, agent: ConversableAgent):
         callable_functions = agent["llm_config"].get("functions", False)
@@ -156,9 +184,9 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                     f"The agent '{agent['name']}' has an empty description, and may not work well with GroupChat."
                 )
             roles.append(
-                f"{'-' * 50}\n"
+                f"{'-' * 100}\n"
                 + f"NAME: {agent['name']}\nDESCRIPTION: {agent['description']}"
-                + f"\n{'-' * 50}"
+                + f"\n{'-' * 100}"
             )
         return "\n".join(roles)
 
@@ -237,8 +265,12 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                 EXTRACT_NEXT_ACTOR_FROM_DISCUSSION_PROMPT.format(
                     actor_options=[agent.name for agent in agents],
                     discussion=response,
-                )
+                ),
+                kwargs={
+                    "additional_kwargs": {"response_format": {"type": "json_object"}}
+                },
             )
+            print("EXTRACTED NEXT ACTOR:", extracted_next_actor)
             response_json = extract_json_response(extracted_next_actor)
             print(
                 f"{COLOR_GET_NEXT_ACTOR_RESPONSE}GET_NEXT_ACTOR_RESPONSE:{RESET_COLOR} \n{response_json['analysis']}"
@@ -262,7 +294,7 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                     return self.agent_by_name(agent.name)
 
             return self.next_agent(last_speaker, agents)
-        
+
     def save_chat_history(self):
         """
         Saves the chat history to a file.
@@ -274,7 +306,6 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
         # Create the groupchat_name directory if it doesn't exist
         if not os.path.exists(groupchat_name):
             os.mkdir(groupchat_name)
-
 
         # Define the file path
         file_path = f"{groupchat_name}_chat_history_{self.start_time}.json"
@@ -297,17 +328,13 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                 file_list = os.listdir(file_directory)
             except FileNotFoundError:
                 # Warn that no history was loaded
-                logger.warning(
-                    f"No chat history was loaded for {self.group_name}."
-                )
+                logger.warning(f"No chat history was loaded for {self.group_name}.")
                 return
 
             # Check if the file list is empty
             if not file_list:
                 # Warn that no history was loaded
-                logger.warning(
-                    f"No chat history was loaded for {self.group_name}."
-                )
+                logger.warning(f"No chat history was loaded for {self.group_name}.")
                 return
 
             # Sort the list of files and grab the most recent
@@ -329,18 +356,14 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
         self.messages = messages
 
         if not self.manager:
-            raise Exception(
-                f"No manager for group: {self.group_name}."
-            )
+            raise Exception(f"No manager for group: {self.group_name}.")
 
         # Set the messages for each agent
         for agent in self.agents:
             agent._oai_messages[self.manager] = messages
             self.manager._oai_messages[agent] = messages
 
-        print(
-            f"\n{COLOR_INFO}Chat history loaded for {self.group_name}{COLOR_INFO}\n"
-        )
+        print(f"\n{COLOR_INFO}Chat history loaded for {self.group_name}{COLOR_INFO}\n")
 
     def set_manager(self, manager: Agent):
         """
@@ -412,7 +435,7 @@ class BetterGroupChatManager(GroupChatManager):
             # Set the name to speaker's name if the role is not function
             if message["role"] != "function":
                 message["name"] = speaker.name
-                
+
             groupchat.messages.append(message)
             # Broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
