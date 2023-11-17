@@ -8,6 +8,8 @@ from src.agent_prompts import (
     AGENT_AWARENESS_SYSTEM_PROMPT,
 )
 
+# NOTE: AssistantAgent and UserProxyAgent are small wrappers around ConversableAgent.
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -96,12 +98,12 @@ functions = [
                     "description": "The contents of the file to be saved.",
                 },
             },
-            "required": ["file_path"],
+            "required": ["file_path", "file_contents"],
         },
     },
     {
         "name": "execute_code_block",
-        "description": f"Execute a code block and return the output. The code block must be a string and labelled with the language. If the first line inside the code block is '# filename: <filename>' it will be saved to disk. Currently supported languages are: python and bash. NOTE: By default the current working directory for this function is {WORK_DIR}.",
+        "description": f"""Execute a code block and return the output. The code block must be a string and labelled with the language. If the first line inside the code block is '# filename: <filename>' it will be saved to disk. Currently supported languages are: python and bash. NOTE: By default the current working directory for this function is {WORK_DIR}.""",
         "parameters": {
             "type": "object",
             "properties": {
@@ -109,14 +111,33 @@ functions = [
                     "type": "string",
                     "description": "The language of the code block.",
                 },
-                "code_bock": {
+                "code_block": {
                     "type": "string",
                     "description": "The block of code to be executed.",
                 },
             },
-            "required": ["lang", "code_bock"],
+            "required": ["lang", "code_block"],
         },
     },
+    # TODO: This function should search the "DOMAIN_KNOWLEDGE_DIR", scan all sub-directories, read in their "description.txt" content, see if any directories match the domain, and return that directory name if it exists. Otherwise it should (optionally) spawn a new task to create that domain directory, find the best resource online for that domain, and save the information (html, pdf, etc.) to that directory. After this process, the "domain expert" will give a RAG response.
+    # {
+    #     "name": "consult_domain_expert",
+    #     "description": """Ask a question to an expert in a field.""",
+    #     "parameters": {
+    #         "type": "object",
+    #         "properties": {
+    #             "domain": {
+    #                 "type": "string",
+    #                 "description": f"The domain of the expert.",
+    #             },
+    #             "question": {
+    #                 "type": "string",
+    #                 "description": f"The question to ask the expert.",
+    #             },
+    #         },
+    #         "required": ["file_path"],
+    #     },
+    # },
 ]
 
 
@@ -142,12 +163,15 @@ code_execution_agent = autogen.AssistantAgent(
     name="CodeExecutionAgent",
     system_message="THIS AGENT IS ONLY USED FOR EXECUTING CODE. DO NOT USE THIS AGENT FOR ANYTHING ELSE.",
     llm_config=llm_config4,
-    code_execution_config={"last_n_messages": 5, "work_dir": WORK_DIR},
+    # NOTE: DO NOT use the last_n_messages parameter. It will cause the execution to fail.
+    code_execution_config={"work_dir": WORK_DIR},
 )
 
 
 def execute_code_block(lang, code_block):
-    return code_execution_agent.execute_code_blocks([(lang, code_block)])
+    exitcode, logs = code_execution_agent.execute_code_blocks([(lang, code_block)])
+    exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
+    return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
 
 function_llm_config = copy.deepcopy(llm_config4)
@@ -176,12 +200,21 @@ groupchat = BetterGroupChat(
     max_round=100,
     persona_discussion=True,
     inject_persona_discussion=True,
+    continue_chat=False,
 )
 manager = BetterGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
+# message = """Please write a python script that prints 10 dad jokes and save it."""
+
+# message = """Please execute the file to show that it works."""
+
+message = """Please write a script that pulls a random wikipedia article, saves it to a file, and prints the title.
+"""
+
 user_proxy.initiate_chat(
     manager,
-    message="""I have a python file that I need cleaning up. The file is located at ./better_group_chat.py. Please clean up the file apply best code practices and good commenting without changing the functionality. I would also like to improve some logs to look better with some color and formatting. Lets use the "colored" python package to do this. Lets keep/refactor the following logs: CHAT_MANAGER_RESPONSE, GET_NEXT_ACTOR_RESPONSE (but only print the "analysis" property), and NEXT_SPEAKER. When you're done please save the file under "agent_better_group_chat.py" for me to review. """,
+    clear_history=False,
+    message=message,
 )
 
 # TODO: Add a function that allows injection of a new agent into the group chat.

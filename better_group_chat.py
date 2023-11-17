@@ -2,6 +2,9 @@
 import logging
 import sys
 import re
+import time
+import json
+import os
 from typing import Dict, List, Optional, Union
 
 from autogen import Agent, GroupChat, ConversableAgent, GroupChatManager
@@ -23,6 +26,7 @@ from colored import fg, bg, attr
 COLOR_AGENT_COUNCIL_RESPONSE = fg("yellow") + attr("bold")
 COLOR_GET_NEXT_ACTOR_RESPONSE = fg("green") + attr("bold")
 COLOR_NEXT_ACTOR = fg("blue") + attr("bold")
+COLOR_INFO = fg("blue") + attr("bold")
 RESET_COLOR = attr("reset")
 
 logger = logging.getLogger(__name__)
@@ -32,6 +36,8 @@ class BetterGroupChat(GroupChat):
     def __init__(
         self,
         agents: List[Agent],
+        group_name: str = "GroupChat",
+        continue_chat: bool = False,
         messages: List[Dict] = [],
         max_round: int = 10,
         admin_name: str = "Admin",
@@ -42,11 +48,22 @@ class BetterGroupChat(GroupChat):
     ):
         super().__init__(agents, messages, max_round, admin_name, func_call_filter)
 
+        self.group_name = group_name
+        self.continue_chat = continue_chat
         self.summarize_agent_descriptions = summarize_agent_descriptions
         self.persona_discussion = persona_discussion
         self.inject_persona_discussion = inject_persona_discussion
         self.agent_descriptions = []
         self.agent_team_description = ""
+        self.manager = None
+
+        # Set start time to current time formatted like "2021-08-31_15-00-00"
+        self.start_time = time.time()
+        self.start_time = time.strftime("%Y-%m-%d_%H-%M-%S", time.localtime(self.start_time))
+
+        # Load in the chat history if continue_chat is True
+        # if self.continue_chat:
+        #     self.load_chat_history(file_path=None)
 
         # Generate agent descriptions based on configuration
         for agent in agents:
@@ -245,6 +262,91 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                     return self.agent_by_name(agent.name)
 
             return self.next_agent(last_speaker, agents)
+        
+    def save_chat_history(self):
+        """
+        Saves the chat history to a file.
+        """
+
+        # Snake case the groupchat name
+        groupchat_name = self.group_name.lower().replace(" ", "_")
+
+        # Create the groupchat_name directory if it doesn't exist
+        if not os.path.exists(groupchat_name):
+            os.mkdir(groupchat_name)
+
+
+        # Define the file path
+        file_path = f"{groupchat_name}_chat_history_{self.start_time}.json"
+
+        # Save the file to the groupchat_name directory
+        with open(f"{groupchat_name}/{file_path}", "w") as f:
+            # Convert the messages to a JSON string with indents
+            messages = json.dumps(self.messages, indent=4)
+            f.write(messages)
+
+    def load_chat_history(self, file_path):
+        """
+        Loads the chat history from a file.
+        """
+        file_directory = self.group_name.lower().replace(" ", "_")
+
+        if not file_path:
+            # Load in the list of files in the groupchat_name directory
+            try:
+                file_list = os.listdir(file_directory)
+            except FileNotFoundError:
+                # Warn that no history was loaded
+                logger.warning(
+                    f"No chat history was loaded for {self.group_name}."
+                )
+                return
+
+            # Check if the file list is empty
+            if not file_list:
+                # Warn that no history was loaded
+                logger.warning(
+                    f"No chat history was loaded for {self.group_name}."
+                )
+                return
+
+            # Sort the list of files and grab the most recent
+            file_list.sort()
+            file_path = file_list[-1]
+            file_path = f"{file_directory}/{file_path}"
+        else:
+            # Define the file path
+            file_path = f"{file_directory}/{file_path}"
+
+            # Check if the file exists
+            if not os.path.exists(file_path):
+                raise Exception(f"File {file_path} does not exist.")
+
+        # Load the file from the groupchat_name directory
+        with open(file_path, "r") as f:
+            messages = json.load(f)
+
+        self.messages = messages
+
+        if not self.manager:
+            raise Exception(
+                f"No manager for group: {self.group_name}."
+            )
+
+        # Set the messages for each agent
+        for agent in self.agents:
+            agent._oai_messages[self.manager] = messages
+            self.manager._oai_messages[agent] = messages
+
+        print(
+            f"\n{COLOR_INFO}Chat history loaded for {self.group_name}{COLOR_INFO}\n"
+        )
+
+    def set_manager(self, manager: Agent):
+        """
+        Sets the manager for the groupchat.
+        """
+        self.manager = manager
 
 
 class BetterGroupChatManager(GroupChatManager):
@@ -265,6 +367,13 @@ class BetterGroupChatManager(GroupChatManager):
             system_message=system_message,
             **kwargs,
         )
+
+        groupchat.set_manager(self)
+
+        if groupchat.continue_chat:
+            # Load in the chat history
+            groupchat.load_chat_history(file_path=None)
+
         # Empty the self._reply_func_list
         self._reply_func_list = []
         self.register_reply(
@@ -274,12 +383,12 @@ class BetterGroupChatManager(GroupChatManager):
             reset_config=BetterGroupChat.reset,
         )
         # Allow async chat if initiated using a_initiate_chat
-        self.register_reply(
-            Agent,
-            BetterGroupChatManager.a_run_chat,
-            config=groupchat,
-            reset_config=BetterGroupChat.reset,
-        )
+        # self.register_reply(
+        #     Agent,
+        #     BetterGroupChatManager.a_run_chat,
+        #     config=groupchat,
+        #     reset_config=BetterGroupChat.reset,
+        # )
 
     def run_chat(
         self,
@@ -288,16 +397,22 @@ class BetterGroupChatManager(GroupChatManager):
         config: Optional[BetterGroupChat] = None,
     ) -> Union[str, Dict, None]:
         """Run a group chat."""
+
+        groupchat = config
+
         if messages is None:
-            messages = self._oai_messages[sender]
+            if groupchat.continue_chat:
+                messages = groupchat.messages
+            else:
+                messages = self._oai_messages[sender]
+
         message = messages[-1]
         speaker = sender
-        groupchat = config
         for i in range(groupchat.max_round):
             # Set the name to speaker's name if the role is not function
             if message["role"] != "function":
                 message["name"] = speaker.name
-            # Add the agent header to the message
+                
             groupchat.messages.append(message)
             # Broadcast the message to all agents except the speaker
             for agent in groupchat.agents:
@@ -330,7 +445,11 @@ class BetterGroupChatManager(GroupChatManager):
                 reply = self.remove_agent_pattern(reply)
                 reply = f"{header}\n\n" + reply
             # The speaker sends the message without requesting a reply
+
             speaker.send(reply, self, request_reply=False)
+
+            # Save the chat history to file after each round
+            groupchat.save_chat_history()
             message = self.last_message(speaker)
         return True, None
 
