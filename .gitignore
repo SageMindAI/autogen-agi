@@ -10,3 +10,9 @@ stored_documents.pkl
 .env
 author_storage/**/*
 * copy*
+.cache
+docs
+groupchat
+storage
+NEW_TEST_DIR
+TEST_DIR
