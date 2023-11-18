@@ -270,7 +270,6 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
                     "additional_kwargs": {"response_format": {"type": "json_object"}}
                 },
             )
-            print("EXTRACTED NEXT ACTOR:", extracted_next_actor)
             response_json = extract_json_response(extracted_next_actor)
             print(
                 f"{COLOR_GET_NEXT_ACTOR_RESPONSE}GET_NEXT_ACTOR_RESPONSE:{RESET_COLOR} \n{response_json['analysis']}"
