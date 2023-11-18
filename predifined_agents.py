@@ -236,6 +236,11 @@ def save_file(file_path, file_contents):
     # Throw error if file already exists
     if os.path.exists(resolved_path):
         raise Exception(f"File already exists at {resolved_path}.")
+    
+    # Create directory if it doesn't exist
+    directory = os.path.dirname(resolved_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
 
     with open(resolved_path, "w") as f:
         f.write(file_contents)
@@ -250,6 +255,11 @@ def save_multiple_files(file_paths, file_contents):
             raise Exception(f"File already exists at {resolved_path}.")
 
     for i, resolved_path in enumerate(resolved_paths):
+        # Create directory if it doesn't exist
+        directory = os.path.dirname(resolved_path)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            
         with open(resolved_path, "w") as f:
             f.write(file_contents[i])
 
