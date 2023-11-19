@@ -18,6 +18,7 @@ from predifined_agents import (
     project_manager_agent,
     efficiency_optimizer_agent,
     emotional_intelligence_expert_agent,
+    task_history_review_agent,
 )
 
 from dotenv import load_dotenv
@@ -53,15 +54,15 @@ AGENT_TEAM = [
     agent_awareness_expert,
     python_expert,
     function_calling_expert,
-    agi_gestalt_agent,
-    code_execution_agent,
+    # agi_gestalt_agent,
     creative_solution_agent,
     first_principles_thinker_agent,
-    out_of_the_box_thinker_agent,
-    strategic_planning_agent,
+    # out_of_the_box_thinker_agent,
+    # strategic_planning_agent,
     project_manager_agent,
-    efficiency_optimizer_agent,
-    emotional_intelligence_expert_agent,
+    # efficiency_optimizer_agent,
+    # emotional_intelligence_expert_agent,
+    task_history_review_agent,
 ]
 
 groupchat = BetterGroupChat(
@@ -78,7 +79,12 @@ manager = BetterGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
 # message = """Please execute the file to show that it works."""
 
-message = """Please review the code in the "code_to_improve" directory and improve it with your best judgement. This includes (but is not limited to) re-arranging the code and directory structure if needed, adding comments, and re-naming functions if needed. I don't think you will be able to run the code, but please do your best to make sure there are no syntax errors and it is complieable. Save your results in the "code_improved" directory."""
+# message = """Please review the code in the "code_to_improve" directory and improve it with your best judgement. This includes (but is not limited to) re-arranging the code and directory structure if needed, adding comments, and re-naming functions if needed. I don't think you will be able to run the code, but please do your best to make sure there are no syntax errors and it is complieable. Save your results in the "code_improved" directory."""
+
+# message = """
+# We are trying to automate a book writing process using AI. Give us 3 overarching things to consider to make it effective."""
+
+message = "Give a powerpoint deck of the top 10 unique selling points and business advantages of the company 'MetaMind' crossed referenced against modern AI and business capabilities and structures. It should be a 10 slide deck in PDF format. Consult the domain expert for information on Metamind. If you run into module problems with Python, install any dependencies you need."
 
 user_proxy.initiate_chat(
     manager,

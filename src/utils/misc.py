@@ -114,7 +114,7 @@ def light_llm4_wrapper(query, kwargs={}):
     llm4 = OpenAI(**kwargs)
     return light_llm_wrapper(llm4, query)
 
-def light_gpt4_wrapper_autogen(query, return_json=False, system_message=None):
+def light_gpt_wrapper_autogen(client, query, return_json=False, system_message=None):
     system_message = system_message or "You are a helpful assistant. A user will ask a question, and you should provide an answer. ONLY return the answer, and nothing more."
 
     messages = [
@@ -135,8 +135,6 @@ def light_gpt4_wrapper_autogen(query, return_json=False, system_message=None):
     if return_json:
         create_kwargs["response_format"] = { "type": "json_object" }
 
-    client = OpenAIWrapper(config_list=config_list4)
-
     response = client.create(**create_kwargs)
 
     if return_json:
@@ -145,6 +143,15 @@ def light_gpt4_wrapper_autogen(query, return_json=False, system_message=None):
         response = json.loads(response)
 
     return response
+
+def light_gpt3_wrapper_autogen(query, return_json=False, system_message=None):
+    client = OpenAIWrapper(config_list=config_list3)
+    return light_gpt_wrapper_autogen(client, query, return_json, system_message)
+
+
+def light_gpt4_wrapper_autogen(query, return_json=False, system_message=None):
+    client = OpenAIWrapper(config_list=config_list4)
+    return light_gpt_wrapper_autogen(client, query, return_json, system_message)
     
 
 def map_directory_to_json(dir_path):

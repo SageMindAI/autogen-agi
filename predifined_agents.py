@@ -14,10 +14,15 @@ from src.agent_prompts import (
     OUT_OF_THE_BOX_THINKER_SYSTEM_PROMPT,
     PROJECT_MANAGER_SYSTEM_PROMPT,
     STRATEGIC_PLANNING_AGENT_SYSTEM_PROMPT,
-    FIRST_PRINCIPLES_THINKER_SYSTEM_PROMPT
+    FIRST_PRINCIPLES_THINKER_SYSTEM_PROMPT,
+    TASK_HISTORY_REVIEW_AGENT,
+    RESEARCH_AGENT_RATE_URLS_MESSAGE,
+    RESEARCH_AGENT_SUMMARIZE_MESSAGE
 )
 
 from autogen import OpenAIWrapper
+
+from ddgsearch import ddgsearch
 
 # NOTE: AssistantAgent and UserProxyAgent are small wrappers around ConversableAgent.
 
@@ -35,6 +40,8 @@ from src.utils.misc import (
     light_gpt4_wrapper_autogen,
     get_informed_answer,
 )
+
+from src.utils.fetch_docs import fetch_and_save
 
 config_list3 = [
     {
@@ -259,7 +266,7 @@ def save_multiple_files(file_paths, file_contents):
         directory = os.path.dirname(resolved_path)
         if not os.path.exists(directory):
             os.makedirs(directory)
-            
+
         with open(resolved_path, "w") as f:
             f.write(file_contents[i])
 
@@ -276,10 +283,70 @@ code_execution_agent = autogen.AssistantAgent(
 
 
 def execute_code_block(lang, code_block):
+    # delete the "last_n_messages" parameter of code_execution_agent._code_execution_config
+    code_execution_agent._code_execution_config.pop("last_n_messages", None)
+
     exitcode, logs = code_execution_agent.execute_code_blocks([(lang, code_block)])
     exitcode2str = "execution succeeded" if exitcode == 0 else "execution failed"
     return f"exitcode: {exitcode} ({exitcode2str})\nCode output: {logs}"
 
+
+def research_domain_knowledge(domain_description):
+    url_descriptions = ddgsearch(domain_description, 10, False)
+
+
+    # Convert the list of url descriptions to a string
+    str_desc = ""
+    for desc in url_descriptions:
+        str_desc += f"URL: {desc['url']}\n\Title:\n{desc['title']}\nDescription:\n{'*' * 50}\n{desc['useful_text']}\n{'*' * 50}\n\n"
+
+    rate_url_query = RESEARCH_AGENT_RATE_URLS_MESSAGE.format(
+        domain_description=domain_description,
+        url_descriptions=str_desc,
+    )
+
+    url_rating_response = light_gpt4_wrapper_autogen(rate_url_query, return_json=True)
+
+    print("URL_RATING_ANALYSIS:\n", url_rating_response)
+
+    # Sort the list by the "rating" key
+    url_rating_response = sorted(url_rating_response, key=lambda x: x["rating"], reverse=True)
+
+    # Get the top 5 domain names
+    top_5_urls = url_rating_response[:5]
+
+
+    # Convert the list of domain descriptions to a string
+    str_desc = ""
+    for desc in top_5_urls:
+        str_desc += f"URL: {desc['url']}\n\Title:\n{desc['title']}\nDescription:\n{'*' * 50}\n{desc['useful_text']}\n{'*' * 50}\n\n"
+
+    summarize_domain_message = RESEARCH_AGENT_SUMMARIZE_MESSAGE.format(
+        example_domain_content=str_desc
+    )
+
+    domain_summary_response = light_gpt4_wrapper_autogen(summarize_domain_message, return_json=True)
+
+    print("DOMAIN_SUMMARY_ANALYSIS:\n", domain_summary_response)
+
+    # Create the domain directory under the "DOMAIN_KNOWLEDGE_DIR"
+    domain_name = domain_summary_response["domain_name"]
+    domain_description = domain_summary_response["domain_description"]
+    domain_dir = os.path.join(DOMAIN_KNOWLEDGE_DOCS_DIR, domain_name)
+    if not os.path.exists(domain_dir):
+        os.makedirs(domain_dir)
+
+    # Save the domain description to the domain directory
+    with open(os.path.join(domain_dir, "domain_description.txt"), "w") as f:
+        f.write(domain_description)
+
+    print(f"DOWNLOADING DOMAIN CONTENT FOR DOMAIN: {domain_name}...")
+
+    # Download the domain content to the domain directory
+    for i, url in enumerate(top_5_urls):
+        fetch_and_save(url["url"], url["url"], domain_dir, set())
+
+    return domain_name, domain_description
 
 def consult_archive_agent(domain_description, question):
     # Traverse the first level of DOMAIN_KNOWLEDGE_DOCS_DIR and find the best match for the domain_description
@@ -315,7 +382,9 @@ def consult_archive_agent(domain_description, question):
     print("\nDOMAIN_DESCRIPTION:\n", domain_description)
 
     if domain is None:
-        return f"Domain not found for domain description: {domain_description}"
+        print(f"Domain not found for domain description: {domain_description}")
+        print("Searching for domain knowledge online...")
+        domain, domain_description = research_domain_knowledge(domain_description)
 
     return get_informed_answer(
         domain=domain,
@@ -389,5 +458,11 @@ emotional_intelligence_expert_agent = autogen.AssistantAgent(
 efficiency_optimizer_agent = autogen.AssistantAgent(
     name="EfficiencyOptimizerAgent",
     system_message=EFFICIENCY_OPTIMIZER_SYSTEM_PROMPT,
+    llm_config=llm_config4,
+)
+
+task_history_review_agent = autogen.AssistantAgent(
+    name="TaskHistoryReviewAgent",
+    system_message=TASK_HISTORY_REVIEW_AGENT,
     llm_config=llm_config4,
 )
