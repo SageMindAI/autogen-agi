@@ -11,7 +11,6 @@ import os.path
 from llama_index.llms import OpenAI
 from llama_index import ServiceContext
 import json
-from llama_hub.youtube_transcript import YoutubeTranscriptReader
 from llama_index import (
     VectorStoreIndex,
     SimpleDirectoryReader,
@@ -64,7 +63,10 @@ response_synthesizer_context = service_context4
 # check if storage already exists
 if not os.path.exists(STORAGE_DIR):
     # load the documents and create the index
-    documents = SimpleDirectoryReader(DOCS_DIR).load_data()
+    documents = SimpleDirectoryReader(
+        DOCS_DIR,
+        recursive=True,
+    ).load_data()
     index = VectorStoreIndex.from_documents(documents)
     # store it for later
     index.storage_context.persist(persist_dir=STORAGE_DIR)
@@ -74,10 +76,8 @@ else:
     index = load_index_from_storage(storage_context)
 
 
-
 def get_retrieved_nodes(query_str, vector_top_k=10, reranker_top_n=4, rerank=True):
     print(f"GETTING TOP NODES: {vector_top_k}")
-    print(f"GETTING RERANKED NODES: {reranker_top_n}")
     query_bundle = QueryBundle(query_str)
     # configure retriever
     retriever = VectorIndexRetriever(
@@ -86,12 +86,13 @@ def get_retrieved_nodes(query_str, vector_top_k=10, reranker_top_n=4, rerank=Tru
     )
     retrieved_nodes = retriever.retrieve(query_bundle)
 
-    # print("RETRIEVED NODES:\n\n")
-    # for node in retrieved_nodes:
-    #     print(node)
-    #     print("\n\n")
+    print(f"ORIGINAL NODES: {len(retrieved_nodes)}\n\n")
+    for node in retrieved_nodes:
+        print(node)
+        print("\n\n")
 
     if rerank:
+        print(f"GETTING RERANKED NODES: {reranker_top_n}")
         # configure reranker
         reranker = LLMRerank(
             choice_batch_size=5,
@@ -100,12 +101,15 @@ def get_retrieved_nodes(query_str, vector_top_k=10, reranker_top_n=4, rerank=Tru
         )
         retrieved_nodes = reranker.postprocess_nodes(retrieved_nodes, query_bundle)
 
-    # print("RERANKED NODES:\n\n")
-    # for node in retrieved_nodes:
-    #     print(node)
-    #     print("\n\n")
+        print(f"RERANKED NODES: {len(retrieved_nodes)}\n\n")
+        for node in retrieved_nodes:
+            file_info = node.metadata.get('file_name') or node.metadata.get('file_path')
+            print(f"FILE INFO: {file_info}")
+            print(node)
+            print("\n\n")
 
     return retrieved_nodes
+
 
 qa_prompt_tmpl_str = (
     f"You are an expert at the llama_index python library. Please use the provided RELEVANT_CONTEXT to ANSWER the given QUESTION.\n\n"
@@ -127,20 +131,23 @@ response_synthesizer = get_response_synthesizer(
     service_context=response_synthesizer_context,
 )
 
-def get_answer(question):
-    nodes = get_retrieved_nodes(question, vector_top_k=20, reranker_top_n=7, rerank=False)
 
-    print("NODES:\n\n")
-    for node in nodes:
-        print(node)
-        print("\n\n")
+def get_answer(question):
+    nodes = get_retrieved_nodes(
+        question, vector_top_k=20, reranker_top_n=7, rerank=True
+    )
+
+    # print("NODES:\n\n")
+    # for node in nodes:
+    #     print(node)
+    #     print("\n\n")
+
+    print("\n\nQUESTION:\n\n")
+    print(question)
 
     response = response_synthesizer.synthesize(question, nodes=nodes)
     # print("LENGTH: ", len(response.source_nodes))
-    print("\n\nQUESTION:\n\n")
-    print(question)
     return response
-
 
 
 def main():
@@ -151,8 +158,7 @@ def main():
     # # Parse arguments
     # args = parser.parse_args()
 
-    question = """
-  How do I create a list of Document objects from a list of Node objects?
+    question = """I'm logging the nodes retrieved by the VectorIndexRetriever. How can I log which file the nodes originate from?
 """
 
     answer = None
@@ -169,5 +175,6 @@ def main():
 
     print("GOT ANSWER: ", answer.response)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

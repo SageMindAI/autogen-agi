@@ -1,17 +1,26 @@
 import argparse
 import bs4
+from bs4 import BeautifulSoup
 from duckduckgo_search import ddg
 import openai
 import logging
 import threading
 import queue
 from readability import Document
+from langchain.document_loaders import AsyncChromiumLoader
+import requests
+import json
+
+
 
 from src.utils.misc import light_gpt3_wrapper_autogen
+from src.utils.fetch_docs import scrape_documentation_page
 
 
 from dotenv import load_dotenv
 load_dotenv()
+
+# TODO: NO THREADING OR ALLOW KEYBOARD INTERRUPT
 
 # ******
 # this is a hack to stop scrapy from logging its version info to stdout
@@ -73,8 +82,6 @@ Please extract only the useful information from the text. Try not to rewrite the
 
     content = response.choices[0].message.content
 
-    print("OPENAI RESPONSE:", content)
-
     if q:
         q.put((ix, content))
     logger.info(f"DONE extracting useful information from chunk {ix}, title: {title}")
@@ -88,7 +95,7 @@ Please extract only the useful information from the text. Try not to rewrite the
 
     return (ix, text)
 
-def extract_useful_information(url, title, text, max_chunks):
+def extract_useful_information(url, title, text, max_chunks, use_threading=False):
     '''
     This function takes the url, title, and text of a webpage.
     It returns the most useful information from the text.
@@ -106,23 +113,32 @@ def extract_useful_information(url, title, text, max_chunks):
     chunks = [text[i*1000: i*1000+1100] for i in range(len(text)//1000)]
     chunks = chunks[:max_chunks]
 
-    threads = []
-    
-    q = queue.Queue()
 
-    for ix, chunk in enumerate(chunks):
-        t = threading.Thread(target=extract_useful_information_from_single_chunk, args=(url, title, chunk, ix, q))
-        threads.append(t)
-        t.start()
-
-    # Wait for all threads to complete
-    for t in threads:
-        t.join()
-
-    # Get all the results from the queue
     results = []
-    while not q.empty():
-        results.append(q.get())
+    if use_threading:
+
+        threads = []
+        
+        q = queue.Queue()
+        # Original threading logic
+        for ix, chunk in enumerate(chunks):
+            t = threading.Thread(target=extract_useful_information_from_single_chunk, args=(url, title, chunk, ix, q))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+
+
+        # Get all the results from the queue
+        while not q.empty():
+            results.append(q.get())
+    else:
+        # Non-threading logic
+        for ix, chunk in enumerate(chunks):
+            result = extract_useful_information_from_single_chunk(url, title, chunk, ix)
+            results.append(result)
+
 
     logger = logging.getLogger("ddgsearch")
     logger.info (f"Got {len(results)} results from the queue")
@@ -168,51 +184,6 @@ def remove_duplicate_empty_lines(input_text):
 
     return '\n'.join(fixed_lines)
 
-
-class MySpider(scrapy.Spider):
-    '''
-    This is the spider that will be used to crawl the webpages. We give this to the scrapy crawler.
-    '''
-    name = 'myspider'
-    start_urls = None
-    clean_with_llm = False 
-    results = []
-
-    def __init__(self, start_urls, clean_with_llm, *args, **kwargs):
-        super(MySpider, self).__init__(*args, **kwargs)
-        self.start_urls = start_urls
-        self.clean_with_llm = clean_with_llm
-
-    def start_requests(self):
-        for url in self.start_urls:
-            yield scrapy.Request(url, callback=self.parse)
-
-    def parse(self, response):
-        logger = logging.getLogger('ddgsearch')
-        logger.info(f"***Parsing {response.url}...")
-
-        body_html = response.body.decode('utf-8')
-
-        url = response.url
-
-        soup = bs4.BeautifulSoup(body_html, 'html.parser')
-        title = soup.title.string
-        text = soup.get_text()
-        text = remove_duplicate_empty_lines(text) 
-
-        if self.clean_with_llm:
-            useful_text = extract_useful_information(url, title, text, 50)
-        else:
-            useful_text = readability(body_html)
-        useful_text = remove_duplicate_empty_lines(useful_text)
-
-        self.results.append({
-            'url': url,
-            'title': title,
-            'text': text,
-            'useful_text': useful_text
-        })
-
 def setloglevel(loglevel):
     # this function sets the log level for the script
     if loglevel == 'DEBUG':
@@ -244,7 +215,60 @@ def setloglevel(loglevel):
     logger = logging.getLogger('openai')
     logger.setLevel(logging_level)
 
-def ddgsearch(query, numresults=10, clean_with_llm=False, loglevel='ERROR'):
+def parse(url, clean_with_llm, dynamic_loading=True, timeout=10):
+    logger = logging.getLogger('ddgsearch')
+    logger.info(f"***Parsing {url}...")
+
+    print("HERE 1")
+
+
+
+
+    if dynamic_loading:
+        print("DYNAMIC LOADING")
+        loader = AsyncChromiumLoader([url])
+        document_list = loader.load()
+
+        # Assuming the first element in the list is the desired Document object
+        document = document_list[0] if document_list else None
+
+        if document:
+            # Attempt to access the raw HTML directly from the Document object
+            # This part might need adjustment based on the actual structure of the Document object
+            body_html = document.html if hasattr(document, 'html') else str(document)
+        else:
+            body_html = ""
+
+    else:
+        print("NON-DYNAMIC LOADING")
+        response = requests.get(url)
+        if response.status == 200:
+            body_html = response.text()
+        else:
+            logger.error(f"Error fetching {url}: Status {response.status}")
+            return None
+    
+    print("HERE 2")
+
+    soup = bs4.BeautifulSoup(body_html, 'html.parser')
+    title = soup.title.string
+    text = soup.get_text()
+    text = remove_duplicate_empty_lines(text) 
+
+    if clean_with_llm:
+        useful_text = extract_useful_information(url, title, text, 50)
+    else:
+        useful_text = readability(body_html)
+    useful_text = remove_duplicate_empty_lines(useful_text)
+
+    return {
+        'url': url,
+        'title': title,
+        'text': text,
+        'useful_text': useful_text
+    }
+    
+def ddgsearch(query, results_file="url_search_results.json", numresults=10, clean_with_llm=False, loglevel='ERROR'):
     '''
     This function performs a search on duckduckgo and returns the results.
     It uses the scrapy library to download the pages and extract the useful information.
@@ -259,24 +283,26 @@ def ddgsearch(query, numresults=10, clean_with_llm=False, loglevel='ERROR'):
     # set the log level
     setloglevel(loglevel)
       
-    # perform the search
+ 
     results = ddg(query, max_results=numresults)
+    urls = [result['href'] for result in results][:numresults]
+    final_results = []
 
-    logger = logging.getLogger('ddgsearch')
-    logger.info(f"Got {len(results)} results from the search.")
-    logger.debug(f"Results: {results}")
+    for url in urls:
+        print("PARSING URL:", url)
+        result = parse(url, clean_with_llm)
+        print("GOT RESULT:")
+        if result:
+            final_results.append(result)
 
-    # get the urls
-    urls = [result['href'] for result in results]
-    urls = urls[:numresults]
+    # print("FINAL RESULTS:", final_results)
 
-    process = CrawlerProcess()
-    setloglevel(loglevel) # this is necessary because the crawler process modifies the log level
-    process.crawl(MySpider, urls, clean_with_llm)
-    process.start()
+    print("SAVING RESULTS TO FILE:", results_file)
+    # Save the results to a file
+    with open(results_file, 'w') as f:
+        json.dump(final_results, f, indent=4)
 
-    # here the spider has finished downloading the pages and cleaning them up
-    return MySpider.results
+    return final_results
 
 def main():
     # usage: python ddgsearch.py query [--numresults <numresults=10>] [--clean_with_llm] [--outfile <outfile name>] [--loglevel <loglevel=ERROR>] [--noprint]
@@ -288,11 +314,13 @@ def main():
     import re
 
     parser.add_argument('query', help='the query to search for')
-    parser.add_argument('--numresults', help='the number of results to return', default=10)
+    parser.add_argument('--numresults', help='the number of results to return', default=5)
     parser.add_argument('--clean_with_llm', help='clean the text with the llm', default=True)
     parser.add_argument('--outfile', help='the name of the file to write the results to', default=None)
-    parser.add_argument('--loglevel', help='the log level', default='ERROR')
+    parser.add_argument('--loglevel', help='the log level', default='INFO')
     parser.add_argument('--noprint', help='do not print the results to the screen', action='store_true')
+    parser.add_argument('--no-threading', help='disable threading', action='store_true')
+
 
     args = parser.parse_args()
 
@@ -309,28 +337,29 @@ def main():
     outfile = args.outfile or default_outfile
     loglevel = args.loglevel
     noprint = args.noprint
-
-    results = ddgsearch(query, numresults, clean_with_llm, loglevel)
+    # Call ddgsearch directly without asyncio
+    results = ddgsearch(query, numresults, clean_with_llm, args.loglevel)
 
     def get_result_lines(results, shorten):
         result_lines = []
         for index, results in enumerate(results):
-            result_lines.append("***************************************")
-            result_lines.append(f"Result {index+1}")
-            result_lines.append(f"Url: {results['url']}")
-            result_lines.append(f"Title: {results['title']}")
-            if shorten:
-                result_lines.append("Cleaned Text (shortened):")
-                useful_lines = results['useful_text'].splitlines()[:20]
-                short_useful_text = '\n'.join(useful_lines)
-                result_lines.append(short_useful_text)
-            else:
-                result_lines.append("Cleaned Text:")
-                result_lines.append(results['useful_text'])
-                result_lines.append("Full Text:")
-                result_lines.append(results['text'])
-            result_lines.append("***************************************")
-            result_lines.append('')
+            if results is not None:
+                result_lines.append("***************************************")
+                result_lines.append(f"Result {index+1}")
+                result_lines.append(f"Url: {results['url']}")
+                result_lines.append(f"Title: {results['title']}")
+                if shorten:
+                    result_lines.append("Cleaned Text (shortened):")
+                    useful_lines = results['useful_text'].splitlines()[:20]
+                    short_useful_text = '\n'.join(useful_lines)
+                    result_lines.append(short_useful_text)
+                else:
+                    result_lines.append("Cleaned Text:")
+                    result_lines.append(results['useful_text'])
+                    result_lines.append("Full Text:")
+                    result_lines.append(results['text'])
+                result_lines.append("***************************************")
+                result_lines.append('')
         return result_lines
 
     if outfile:
