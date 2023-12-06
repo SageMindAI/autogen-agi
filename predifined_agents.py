@@ -2,7 +2,6 @@ import autogen
 import requests
 import subprocess
 
-from better_group_chat import BetterGroupChat, BetterGroupChatManager
 from src.agent_prompts import (
     PYTHON_EXPERT_AGENT_SYSTEM_PROMPT,
     FUNCTION_CALLING_AGENT_SYSTEM_PROMPT,
@@ -50,14 +49,15 @@ from src.utils.misc import (
     light_llm_wrapper,
     light_gpt4_wrapper_autogen,
     light_llm4_wrapper,
-    get_informed_answer,
     extract_json_response,
 )
+
+from src.utils.rag_tools import get_informed_answer
 
 from src.utils.fetch_docs import fetch_and_save
 
 google_search_api_key = os.environ["GOOGLE_SEARCH_API_KEY"]
-google_custome_search_id = os.environ["GOOGLE_CUSTOM_SEARCH_ENGINE_ID"]
+google_custom_search_id = os.environ["GOOGLE_CUSTOM_SEARCH_ENGINE_ID"]
 github_personal_access_token = os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"]
 
 config_list3 = [
@@ -80,7 +80,7 @@ llm_config4 = {
     "temperature": 0.1,
 }
 
-WORK_DIR = "NEW_TEST_DIR"
+WORK_DIR = "working"
 DOMAIN_KNOWLEDGE_DOCS_DIR = "docs"
 DOMAIN_KNOWLEDGE_STORAGE_DIR = "storage"
 COMM_DIR = "url_search_results"
@@ -336,7 +336,7 @@ def google_custom_search(query, numresults=10, start=1):
     search_url = "https://www.googleapis.com/customsearch/v1"
     params = {
         'q': query,
-        'cx': google_custome_search_id,
+        'cx': google_custom_search_id,
         'key': google_search_api_key,
         'num': numresults,
         'start': start
@@ -355,6 +355,7 @@ def google_custom_search(query, numresults=10, start=1):
 
 
 def google_github_search(query, numresults=10):
+    print("SEARCHING GOOGLE FOR RELEVANT GITHUB REPOS...")
     excluded_urls = ["github.com/topics"]
     query = f"{query} site:github.com"
 
@@ -378,9 +379,11 @@ def google_github_search(query, numresults=10):
             print("Maximum number of results reached.")
             break
 
+    print("GOOGLE SEARCH RESULTS:", github_urls)
     return github_urls
 
 def get_repo_details(repo_url):
+    print(f"EXTRACTING GITHUB REPO DETAILS FOR `{repo_url}`...")
     api_url = repo_url.replace("https://github.com/", "https://api.github.com/repos/")
     headers = {'Authorization': f'token {github_personal_access_token}'}
     repo_response = requests.get(api_url, headers=headers)
@@ -467,6 +470,10 @@ def download_repository(repo_url, directory):
     
 def find_relevant_github_repo(domain_description):
     repos = search_github_repositories(domain_description)
+
+    # Truncate each repo readme to 5000 chars
+    for repo in repos:
+        repo['readme'] = repo['readme'][:5000]
 
     # Convert the list of url descriptions to a string
     str_desc = ""
@@ -671,8 +678,8 @@ def consult_archive_agent(domain_description, question):
 function_llm_config = copy.deepcopy(llm_config4)
 function_llm_config["functions"] = functions
 
-function_calling_expert = autogen.AssistantAgent(
-    name="FunctionCallingExpert",
+function_calling_agent = autogen.AssistantAgent(
+    name="FunctionCallingAgent",
     system_message=FUNCTION_CALLING_AGENT_SYSTEM_PROMPT,
     llm_config=function_llm_config,
     function_map={

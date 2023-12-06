@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from termcolor import colored
 from autogen.agentchat.contrib.retrieve_user_proxy_agent import RetrieveUserProxyAgent
 from autogen.agentchat.contrib.retrieve_assistant_agent import RetrieveAssistantAgent
+from autogen import Agent
 
 from llama_index import (
     VectorStoreIndex,
@@ -19,6 +20,7 @@ from llama_index import (
     retrievers,
     response_synthesizers,
 )
+from typing import Callable, Dict, Optional, Union, List, Tuple, Any
 
 from chromadb.api.types import QueryResult
 
@@ -102,7 +104,6 @@ from typing import Dict, Union
 #     index = load_index_from_storage(storage_context)
 
 
-
 CUSTOM_PROMPT = """You're a retrieve augmented chatbot. You ANSWER the USER_QUESTION based on the
 RELEVANT_CONTEXT provided by the user. You should follow the following steps to answer a question:
 Step 1, you estimate the user's intent based on the question and context. The intent can be a code generation task or
@@ -132,9 +133,7 @@ ANSWER:
 
 
 class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
-
     def __init__(self, *args, **kwargs):
-
         if kwargs.get("retrieve_config", {}).get("customized_prompt", None) is None:
             kwargs["retrieve_config"]["customized_prompt"] = CUSTOM_PROMPT
         # Check retrieve_config for "docs_path"
@@ -148,15 +147,22 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
 
         # Check retrieve_config for "reranker_context"
         if kwargs.get("retrieve_config", {}).get("reranker_context", None) is None:
-            llm = OpenAI(model=self.llm_config["config_list"][0]["model"], temperature=0.1)
-            kwargs["retrieve_config"]["reranker_context"] = ServiceContext.from_defaults(llm=llm)
-            
+            llm = OpenAI(
+                model=self.llm_config["config_list"][0]["model"], temperature=0.1
+            )
+            kwargs["retrieve_config"][
+                "reranker_context"
+            ] = ServiceContext.from_defaults(llm=llm)
+
         DOCS_DIR = kwargs["retrieve_config"]["docs_path"]
         STORAGE_DIR = kwargs["retrieve_config"]["storage_path"]
         # check if storage already exists
         if not os.path.exists(STORAGE_DIR):
             # load the documents and create the index
-            documents = SimpleDirectoryReader(DOCS_DIR).load_data()
+            documents = SimpleDirectoryReader(
+                DOCS_DIR,
+                recursive=True,
+            ).load_data()
             self.index = VectorStoreIndex.from_documents(documents)
             # store it for later
             self.index.storage_context.persist(persist_dir=STORAGE_DIR)
@@ -165,16 +171,18 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
             storage_context = StorageContext.from_defaults(persist_dir=STORAGE_DIR)
             self.index = load_index_from_storage(storage_context)
 
-        
-    def query_vector_db(self, query_texts, n_results=10, **kwargs) -> QueryResult: 
+    def query_vector_db(self, query_texts, n_results=10, **kwargs) -> QueryResult:
         # Implement your custom retrieval logic here using your vector database client
 
-        nodes = self.get_retrieved_nodes(str(query_texts), vector_top_k=n_results, reranker_top_n=20, rerank=True)
+        nodes = self.get_retrieved_nodes(
+            str(query_texts), vector_top_k=n_results, reranker_top_n=20, rerank=False
+        )
         retrieved_docs = [self.node_to_document(node) for node in nodes]
         return self.convert_documents_to_queryresult(retrieved_docs)
 
-
-    def retrieve_docs(self, problem: str, n_results: int = 40, search_string: str = "", **kwargs):
+    def retrieve_docs(
+        self, problem: str, n_results: int = 40, search_string: str = "", **kwargs
+    ):
         results = self.query_vector_db(
             query_texts=problem,
             n_results=n_results,
@@ -223,7 +231,6 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
                 break
         print("DOC_CONTENTS_LEN: ", len(self._doc_contents))
         return doc_contents
-    
 
     @staticmethod
     def get_max_tokens(model="gpt-3.5-turbo"):
@@ -240,7 +247,9 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
         else:
             return 4000
 
-    def get_retrieved_nodes(self, query_str, vector_top_k=40, reranker_top_n=20, rerank=True):
+    def get_retrieved_nodes(
+        self, query_str, vector_top_k=40, reranker_top_n=20, rerank=True
+    ):
         print(f"GETTING TOP NODES: {vector_top_k}")
         query_bundle = QueryBundle(query_str)
         # configure retriever
@@ -273,14 +282,16 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
 
         return retrieved_nodes
 
-    def convert_documents_to_queryresult(self, documents: List[Document]) -> QueryResult:
+    def convert_documents_to_queryresult(
+        self, documents: List[Document]
+    ) -> QueryResult:
         # Extracting data from each document
         ids = [doc.id_ for doc in documents]
         embeddings = [[doc.embedding] if doc.embedding else [] for doc in documents]
-        
+
         # Modify this line to create a list of dictionaries
         doc_texts = [{"text": doc.text} for doc in documents]
-        
+
         metadatas = [[doc.metadata] if doc.metadata else [] for doc in documents]
 
         # Assembling the QueryResult
@@ -291,7 +302,7 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
             uris=[[]],  # Assuming URIs are not available in Document
             data=[[]],  # Assuming data is not available in Document
             metadatas=[metadatas],
-            distances=[[]]  # Assuming distances are not available
+            distances=[[]],  # Assuming distances are not available
         )
 
         return query_result
@@ -302,7 +313,14 @@ class LlamaRetrieveUserProxyAgent(RetrieveUserProxyAgent):
         doc_id = node.node_id
         doc_text = node.text
         doc_metadata = node.metadata
-        
+
         # Create and return a Document object
         return Document(id=doc_id, text=doc_text, metadata=doc_metadata)
 
+    def _generate_retrieve_user_reply(
+        self,
+        messages: Optional[List[Dict]] = None,
+        sender: Optional[Agent] = None,
+        config: Optional[Any] = None,
+    ) -> Tuple[bool, Union[str, Dict, None]]:
+        pass
