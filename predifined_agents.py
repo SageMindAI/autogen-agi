@@ -2,12 +2,11 @@ import autogen
 import requests
 import subprocess
 
-from src.agent_prompts import (
-    PYTHON_EXPERT_AGENT_SYSTEM_PROMPT,
+from agent_prompts import (
+    PYTHON_EXPERT_SYSTEM_PROMPT,
     FUNCTION_CALLING_AGENT_SYSTEM_PROMPT,
     USER_PROXY_SYSTEM_PROMPT,
     AGENT_AWARENESS_SYSTEM_PROMPT,
-    ARCHIVE_AGENT_MATCH_DOMAIN_MESSAGE,
     CREATIVE_SOLUTION_AGENT_SYSTEM_PROMPT,
     AGI_GESTALT_SYSTEM_PROMPT,
     EFFICIENCY_OPTIMIZER_SYSTEM_PROMPT,
@@ -16,12 +15,30 @@ from src.agent_prompts import (
     PROJECT_MANAGER_SYSTEM_PROMPT,
     STRATEGIC_PLANNING_AGENT_SYSTEM_PROMPT,
     FIRST_PRINCIPLES_THINKER_SYSTEM_PROMPT,
-    TASK_HISTORY_REVIEW_AGENT,
-    RESEARCH_AGENT_RATE_URLS_MESSAGE,
-    RESEARCH_AGENT_SUMMARIZE_MESSAGE,
-    RESEARCH_AGENT_RATE_REPOS_MESSAGE,
+    TASK_HISTORY_REVIEW_AGENT_SYSTEM_PROMPT,
     TASK_COMPREHENSION_AGENT_SYSTEM_PROMPT,
-    RESEARCH_AGENT_SUMMARIZE_REPO_MESSAGE
+)
+
+from misc_prompts import (
+    PYTHON_EXPERT_SYSTEM_PROMPT,
+    FUNCTION_CALLING_AGENT_SYSTEM_PROMPT,
+    USER_PROXY_SYSTEM_PROMPT,
+    AGENT_AWARENESS_SYSTEM_PROMPT,
+    ARCHIVE_AGENT_MATCH_DOMAIN_PROMPT,
+    CREATIVE_SOLUTION_AGENT_SYSTEM_PROMPT,
+    AGI_GESTALT_SYSTEM_PROMPT,
+    EFFICIENCY_OPTIMIZER_SYSTEM_PROMPT,
+    EMOTIONAL_INTELLIGENCE_EXPERT_SYSTEM_PROMPT,
+    OUT_OF_THE_BOX_THINKER_SYSTEM_PROMPT,
+    PROJECT_MANAGER_SYSTEM_PROMPT,
+    STRATEGIC_PLANNING_AGENT_SYSTEM_PROMPT,
+    FIRST_PRINCIPLES_THINKER_SYSTEM_PROMPT,
+    TASK_HISTORY_REVIEW_AGENT_SYSTEM_PROMPT,
+    RESEARCH_AGENT_RATE_URLS_PROMPT,
+    RESEARCH_AGENT_SUMMARIZE_DOMAIN_PROMPT,
+    RESEARCH_AGENT_RATE_REPOS_PROMPT,
+    TASK_COMPREHENSION_AGENT_SYSTEM_PROMPT,
+    RESEARCH_AGENT_SUMMARIZE_REPO_PROMPT
 )
 
 from autogen import OpenAIWrapper
@@ -34,8 +51,6 @@ import base64
 
 from time import sleep
 
-# NOTE: AssistantAgent and UserProxyAgent are small wrappers around ConversableAgent.
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,17 +59,17 @@ import os
 import copy
 import json
 
-from src.utils.agent_utils import get_end_intent
-from src.utils.misc import (
+from utils.agent_utils import get_end_intent
+from utils.misc import (
     light_llm_wrapper,
     light_gpt4_wrapper_autogen,
     light_llm4_wrapper,
     extract_json_response,
 )
 
-from src.utils.rag_tools import get_informed_answer
+from utils.rag_tools import get_informed_answer
 
-from src.utils.fetch_docs import fetch_and_save
+from utils.fetch_docs import fetch_and_save
 
 google_search_api_key = os.environ["GOOGLE_SEARCH_API_KEY"]
 google_custom_search_id = os.environ["GOOGLE_CUSTOM_SEARCH_ENGINE_ID"]
@@ -111,7 +126,7 @@ agent_awareness_expert = autogen.AssistantAgent(
 python_expert = autogen.AssistantAgent(
     name="PythonExpert",
     llm_config=llm_config4,
-    system_message=PYTHON_EXPERT_AGENT_SYSTEM_PROMPT,
+    system_message=PYTHON_EXPERT_SYSTEM_PROMPT,
 )
 
 functions = [
@@ -217,9 +232,6 @@ functions = [
             "required": ["lang", "code_block"],
         },
     },
-    # TODO: This function should search the "DOMAIN_KNOWLEDGE_DIR", scan all sub-directories, read in their "description.txt" content, see if any directories match the domain, and return that directory name if it exists. Otherwise it should (optionally) spawn a new task to create that domain directory, find the best resource online for that domain, and save the information (html, pdf, etc.) to that directory. After this process, the "domain expert" will give a RAG response.
-    ## OOORR: We have an "archive" bot that excells in searching for relevant information, and a "research" bot that excells in finding resources online and downloading them for the "archive" bot to process.
-    # TODO: Give the agents the entire documenation of the "agent hierarchy" plan in their system message
     {
         "name": "consult_archive_agent",
         "description": """Ask a question to the archive agent. The archive agent has access to certain specific domain knowledge. The agent will search for any available domain knowledge that matches the domain related to the question and use that knowledge to formulate their response. The domains are generally very specific and niche content that would most likely be outside of GPT4 knowledge (such as detailed technical/api documentation).""",
@@ -481,7 +493,7 @@ def find_relevant_github_repo(domain_description):
         # print("repo NAME: ", repo["name"])
         str_desc += f"URL: {repo['url']}\nNAME: {repo['name']}\n\DESCRIPTION: {repo['description']}\nREADME:\n{'*' * 50}\n{repo['readme']}\n{'*' * 50}\n\n"
 
-    rate_repos_query = RESEARCH_AGENT_RATE_REPOS_MESSAGE.format(
+    rate_repos_query = RESEARCH_AGENT_RATE_REPOS_PROMPT.format(
         domain_description=domain_description,
         repository_descriptions=str_desc,
     )
@@ -513,7 +525,7 @@ def find_relevant_github_repo(domain_description):
 
     str_desc += f"URL: {top_repo['url']}\n\Title:\n{top_repo['title']}\nDescription:\n{'*' * 50}\n{top_repo['readme']}\n{'*' * 50}\n\n"
 
-    summarize_repo_message = RESEARCH_AGENT_SUMMARIZE_REPO_MESSAGE.format(
+    summarize_repo_message = RESEARCH_AGENT_SUMMARIZE_REPO_PROMPT.format(
         readme_content=str_desc
     )
 
@@ -558,7 +570,7 @@ def research_domain_knowledge(domain_description):
         print("URL TITLE: ", desc["title"])
         str_desc += f"URL: {desc['url']}\n\Title:\n{desc['title']}\nDescription:\n{'*' * 50}\n{desc['useful_text']}\n{'*' * 50}\n\n"
 
-    rate_url_query = RESEARCH_AGENT_RATE_URLS_MESSAGE.format(
+    rate_url_query = RESEARCH_AGENT_RATE_URLS_PROMPT.format(
         domain_description=domain_description,
         url_descriptions=str_desc,
     )
@@ -586,7 +598,7 @@ def research_domain_knowledge(domain_description):
                 break
         str_desc += f"URL: {desc['url']}\n\Title:\n{desc['title']}\nDescription:\n{'*' * 50}\n{desc['useful_text']}\n{'*' * 50}\n\n"
 
-    summarize_domain_message = RESEARCH_AGENT_SUMMARIZE_MESSAGE.format(
+    summarize_domain_message = RESEARCH_AGENT_SUMMARIZE_DOMAIN_PROMPT.format(
         example_domain_content=str_desc
     )
 
@@ -638,7 +650,7 @@ def consult_archive_agent(domain_description, question):
     for desc in domain_descriptions:
         str_desc += f"Domain: {desc['domain_name']}\n\nDescription:\n{'*' * 50}\n{desc['domain_description']}\n{'*' * 50}\n\n"
 
-    find_domain_query = ARCHIVE_AGENT_MATCH_DOMAIN_MESSAGE.format(
+    find_domain_query = ARCHIVE_AGENT_MATCH_DOMAIN_PROMPT.format(
         domain_description=domain_description,
         available_domains=str_desc,
     )
@@ -743,7 +755,7 @@ efficiency_optimizer_agent = autogen.AssistantAgent(
 
 task_history_review_agent = autogen.AssistantAgent(
     name="TaskHistoryReviewAgent",
-    system_message=TASK_HISTORY_REVIEW_AGENT,
+    system_message=TASK_HISTORY_REVIEW_AGENT_SYSTEM_PROMPT,
     llm_config=llm_config4,
 )
 
