@@ -1,68 +1,57 @@
 """
-DESCRIPTION: This file contains miscellaneous functions that are used in multiple scripts.
+DESCRIPTION: This file contains functions for Retriever-Augmented Generation (RAG).
 """
-
+# Standard Library Imports
 import os
-import json
-import openai
-import autogen
-from autogen import OpenAIWrapper
+import logging
+from typing import List, Optional, Tuple, Any
 from time import sleep
 
-from llama_index.llms import OpenAI
-from typing import Callable, List, Optional, Tuple, Any
+# Third-Party Imports
+import openai
+from dotenv import load_dotenv
 
+# Local Imports
+from autogen.token_count_utils import count_token
 from llama_index import (
     VectorStoreIndex,
     SimpleDirectoryReader,
     StorageContext,
     load_index_from_storage,
     ServiceContext,
-    llms,
-    prompts,
-    indices,
-    retrievers,
-    response_synthesizers,
 )
-from llama_index.prompts.prompt_type import PromptType
 from llama_index.bridge.pydantic import BaseModel
-from llama_index.prompts.base import BasePromptTemplate, PromptTemplate
 from llama_index.indices.postprocessor import LLMRerank
-from llama_index.schema import BaseNode, NodeWithScore, MetadataMode
 from llama_index.indices.query.schema import QueryBundle
-from llama_index.retrievers import VectorIndexRetriever
 from llama_index.llm_predictor import LLMPredictor
-from llama_index.response_synthesizers import (
-    ResponseMode,
-    get_response_synthesizer,
-)
-from llama_index.query_engine import RetrieverQueryEngine
-from llama_index.storage.docstore import SimpleDocumentStore
-from llama_index.storage import StorageContext
-from llama_index.retrievers.auto_merging_retriever import AutoMergingRetriever
-from llama_index.prompts import PromptTemplate
-from pathlib import Path
-from llama_index import download_loader
+from llama_index.llms import OpenAI
 from llama_index.node_parser import LangchainNodeParser
-from autogen.token_count_utils import count_token
-
+from llama_index.prompts.base import BasePromptTemplate, PromptTemplate
+from llama_index.retrievers import VectorIndexRetriever, AutoMergingRetriever
+from llama_index.retrievers.auto_merging_retriever import AutoMergingRetriever
+from llama_index.response_synthesizers import ResponseMode, get_response_synthesizer
+from llama_index.schema import BaseNode, NodeWithScore, MetadataMode
+from llama_index.storage import StorageContext
 from langchain.text_splitter import RecursiveCharacterTextSplitter, Language
 
-from .misc import extract_json_response, light_gpt4_wrapper_autogen, format_incrementally
+
+# Relative Imports
+from .misc import (
+    extract_json_response,
+    light_gpt4_wrapper_autogen,
+    format_incrementally,
+)
 from prompts.misc_prompts import (
     CHOICE_SELECT_PROMPT,
     RAG_FUSION_PROMPT,
     DOMAIN_QA_PROMPT_TMPL_STR,
-    GENERAL_QA_PROMPT_TMPL_STR
+    GENERAL_QA_PROMPT_TMPL_STR,
 )
 
-import logging
-
-from dotenv import load_dotenv
-
+# Load environment variables
 load_dotenv()
 
-
+# Logger setup
 logger = logging.getLogger(__name__)
 
 
@@ -101,7 +90,14 @@ llm4 = OpenAI(model="gpt-4-1106-preview", temperature=0.5)
 
 
 class JSONLLMPredictor(LLMPredictor):
+    """
+    A class extending LLMPredictor to handle predictions with JSON-specific functionalities.
+    """
+
     def __init__(self, **kwargs):
+        """
+        Initialize the JSONLLMPredictor.
+        """
         super().__init__(**kwargs)
 
     def predict(
@@ -110,7 +106,17 @@ class JSONLLMPredictor(LLMPredictor):
         output_cls: Optional[BaseModel] = None,
         **prompt_args: Any,
     ) -> str:
-        """Predict."""
+        """
+        Make a prediction based on the given prompt and arguments.
+
+        Args:
+            prompt (BasePromptTemplate): The prompt template to use.
+            output_cls (Optional[BaseModel]): The output class for structured responses.
+            **prompt_args (Any): Additional arguments for prompt formatting.
+
+        Returns:
+            str: The prediction result.
+        """
         self._log_template_data(prompt, **prompt_args)
 
         if output_cls is not None:
@@ -127,7 +133,6 @@ class JSONLLMPredictor(LLMPredictor):
             output = response.text
 
         logger.debug(output)
-
         return output
 
 
@@ -305,12 +310,12 @@ def get_retrieved_nodes(
 
         print(f"ORIGINAL NODES for query: {variation}\n\n")
         for node in variation_nodes:
-            file_info = node.metadata.get('file_name') or node.metadata.get('file_path')
+            file_info = node.metadata.get("file_name") or node.metadata.get("file_path")
             print(f"FILE INFO: {file_info}")
             print("NODE ID: ", node.id_)
             print("NODE Score: ", node.score)
             print("NODE Length: ", len(node.text))
-            print("NODE Text: ", node.text, '\n-----------\n')
+            print("NODE Text: ", node.text, "\n-----------\n")
 
         # add variation nodes to retrieved nodes
         retrieved_nodes.extend(variation_nodes)
@@ -366,21 +371,9 @@ def get_informed_answer(
     rerank=False,
     fusion=False,
 ):
-    llm3_general = OpenAI(model="gpt-3.5-turbo-1106", temperature=0.1)
-    llm3_synthesizer = OpenAI(
-        model="gpt-3.5-turbo-1106", temperature=0.1, max_tokens=1000
-    )
-    llm4 = OpenAI(model="gpt-4-1106-preview", temperature=0.5)
-
-    json_llm_predictor = JSONLLMPredictor(llm=llm3_general)
-
-    service_context3_general = ServiceContext.from_defaults(
-        llm_predictor=json_llm_predictor
-    )
     service_context3_synthesizer = ServiceContext.from_defaults(llm=llm3_synthesizer)
     service_context4 = ServiceContext.from_defaults(llm=llm4)
 
-    reranker_context = service_context3_general
     response_synthesizer_context = service_context4
 
     if domain is None:
@@ -389,7 +382,6 @@ def get_informed_answer(
     else:
         STORAGE_DIR = f"{storage_dir}/{domain}"
         DOCS_DIR = f"{docs_dir}/{domain}"
-
 
     # check if storage already exists
     if not os.path.exists(STORAGE_DIR):
@@ -412,7 +404,9 @@ def get_informed_answer(
                 rerank=rerank,
                 fusion=fusion,
             )
-        except IndexError as e: # This happens with the default re-ranker, but not the modified one due to the JSON response
+        except (
+            IndexError
+        ) as e:  # This happens with the default re-ranker, but not the modified one due to the JSON response
             print("INDEX ERROR: ", e)
             continue
 
