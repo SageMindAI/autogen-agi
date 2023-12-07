@@ -49,45 +49,35 @@ from prompts.misc_prompts import (
     GENERAL_QA_PROMPT_TMPL_STR,
 )
 
+# Configuration and Constants
+
 # Load environment variables
 load_dotenv()
 
 # Logger setup
 logger = logging.getLogger(__name__)
 
+# OpenAI API key
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 
-config_list3 = [
-    {
+# LLM Models Configuration
+LLM_CONFIGS = {
+    "gpt-3.5-turbo": {
         "model": "gpt-3.5-turbo-1106",
-        "api_key": os.environ["OPENAI_API_KEY"],
-    }
-]
-
-config_list4 = [
-    {
+        "api_key": OPENAI_API_KEY,
+    },
+    "gpt-4": {
         "model": "gpt-4-1106-preview",
-        "api_key": os.environ["OPENAI_API_KEY"],
-    }
-]
+        "api_key": OPENAI_API_KEY,
+    },
+}
 
-config_list3 = [
-    {
-        "model": "gpt-3.5-turbo-1106",
-        "api_key": os.environ["OPENAI_API_KEY"],
-    }
-]
-
-config_list4 = [
-    {
-        "model": "gpt-4-1106-preview",
-        "api_key": os.environ["OPENAI_API_KEY"],
-    }
-]
-
-
-llm3_general = OpenAI(model="gpt-3.5-turbo-1106", temperature=0.1)
-llm3_synthesizer = OpenAI(model="gpt-3.5-turbo-1106", temperature=0.1, max_tokens=1000)
-llm4 = OpenAI(model="gpt-4-1106-preview", temperature=0.5)
+# Instantiate LLM Models
+llm3_general = OpenAI(model=LLM_CONFIGS["gpt-3.5-turbo"]["model"], temperature=0.1)
+llm3_synthesizer = OpenAI(
+    model=LLM_CONFIGS["gpt-3.5-turbo"]["model"], temperature=0.1, max_tokens=1000
+)
+llm4 = OpenAI(model=LLM_CONFIGS["gpt-4"]["model"], temperature=0.5)
 
 
 class JSONLLMPredictor(LLMPredictor):
@@ -165,7 +155,7 @@ class ModifiedLLMRerank(LLMRerank):
 
             query_str = query_bundle.query_str
             fmt_batch_str = self._format_node_batch_fn(nodes_batch)
-            print("RERANKING BATCH...")
+            logger.info(f"Reranking batch of {len(nodes_batch)} nodes...")
             raw_response = self.service_context.llm_predictor.predict(
                 self.choice_select_prompt,
                 context_str=fmt_batch_str,
@@ -311,6 +301,22 @@ def get_retrieved_nodes(
     fusion=True,
     query_context=None,
 ):
+    """
+    Retrieves nodes based on the provided query string and other parameters.
+
+    Args:
+        query_str (str): The query string.
+        index: The index to search in.
+        vector_top_k (int): The number of top vectors to retrieve.
+        reranker_top_n (int): The number of top nodes to keep after reranking.
+        rerank (bool): Flag to perform reranking.
+        score_threshold (int): The threshold for score filtering.
+        fusion (bool): Flag to perform fusion.
+        query_context: Additional context for the query.
+
+    Returns:
+        List: A list of retrieved nodes.
+    """
     json_llm_predictor = JSONLLMPredictor(llm=llm3_general)
 
     service_context3_general = ServiceContext.from_defaults(
@@ -318,21 +324,22 @@ def get_retrieved_nodes(
     )
 
     reranker_context = service_context3_general
-    print(f"GETTING TOP NODES: {vector_top_k}")
+
+    logger.info(f"Getting top {vector_top_k} nodes")
     # configure retriever
 
     if fusion:
         query_variations = rag_fusion(query_str, query_context)
         query_variations.append(query_str)
-        print("QUERY VARIATIONS: ", query_variations)
+        logger.info(f"Query variations for RAG fusion: {query_variations}")
     else:
         query_variations = [query_str]
 
     retrieved_nodes = []
     num_of_variations = len(query_variations)
-    print("NUM OF VARIATIONS: ", num_of_variations)
+    logger.info(f"Number of variations: {num_of_variations}")
     results_per_variation = int(vector_top_k / num_of_variations)
-    print("RESULTS PER VARIATION: ", results_per_variation)
+    logger.info(f"Results per variation: {results_per_variation}")
     for variation in query_variations:
         base_retriever = VectorIndexRetriever(
             index=index,
@@ -343,65 +350,120 @@ def get_retrieved_nodes(
             base_retriever, index.storage_context, verbose=False
         )
         query_bundle = QueryBundle(variation)
-        variation_nodes = None
-        while variation_nodes is None:
-            try:
-                variation_nodes = retriever.retrieve(query_bundle)
-            except openai.APITimeoutError as e:
-                print("TIMEOUT_ERROR: ", e)
-                continue
-        variation_nodes = retriever.retrieve(query_bundle)
 
-        print(f"ORIGINAL NODES for query: {variation}\n\n")
+        variation_nodes = retrieve_nodes_with_retry(retriever, query_bundle)
+
+        logger.debug(f"ORIGINAL NODES for query: {variation}\n\n")
         for node in variation_nodes:
             file_info = node.metadata.get("file_name") or node.metadata.get("file_path")
-            print(f"FILE INFO: {file_info}")
-            print("NODE ID: ", node.id_)
-            print("NODE Score: ", node.score)
-            print("NODE Length: ", len(node.text))
-            print("NODE Text: ", node.text, "\n-----------\n")
+            node_info = (
+                f"FILE INFO: {file_info}\n"
+                f"NODE ID: {node.id_}\n"
+                f"NODE Score: {node.score}\n"
+                f"NODE Length: {len(node.text)}\n"
+                f"NODE Text: {node.text}\n-----------\n"
+            )
+            logger.debug(node_info)
 
         # add variation nodes to retrieved nodes
         retrieved_nodes.extend(variation_nodes)
 
-    # remove duplicate nodes by id_
-    print("NODE COUNT BEFORE REMOVING DUPLICATES: ", len(retrieved_nodes))
-    retrieved_nodes = list({node.id_: node for node in retrieved_nodes}.values())
-    print("NODE COUNT AFTER REMOVING DUPLICATES: ", len(retrieved_nodes))
+    retrieved_nodes = remove_duplicate_nodes(retrieved_nodes)
 
     if rerank:
-        print(f"GETTING RERANKED NODES: {reranker_top_n}")
-        # configure reranker
-        reranker = ModifiedLLMRerank(
-            choice_batch_size=5,
-            top_n=reranker_top_n,
-            service_context=reranker_context,
+        retrieved_nodes = rerank_nodes(
+            retrieved_nodes,
+            query_bundle,
+            reranker_context,
+            reranker_top_n,
+            score_threshold,
         )
-        print("RERANKING NODES...")
-        retrieved_nodes = reranker.postprocess_nodes(retrieved_nodes, query_bundle)
 
-        # filter out nodes with low scores
-        retrieved_nodes = [
-            node for node in retrieved_nodes if node.score > score_threshold
-        ]
-
-        print(f"RERANKED_NODES: {len(retrieved_nodes)}\n\n")
-        for node in retrieved_nodes:
-            file_info = node.metadata.get("file_name") or node.metadata.get("file_path")
-            print(f"FILE INFO: {file_info}")
-            print("NODE ID: ", node.id_)
-            print("NODE Score: ", node.score)
-            print("NODE Length: ", len(node.text))
-            print("NODE Text: ", node.text, "\n-----------\n")
-
-    # count tokens in nodes
-    total_tokens = 0
-    for node in retrieved_nodes:
-        total_tokens += count_token(node.text)
-
-    print("TOTAL NODE TOKENS: ", total_tokens)
+    total_tokens = sum(count_token(node.text) for node in retrieved_nodes)
+    logger.info(f"Total node tokens: {total_tokens}")
 
     return retrieved_nodes
+
+
+def retrieve_nodes_with_retry(retriever, query_bundle, max_retries=3):
+    """
+    Attempts to retrieve nodes with a retry mechanism.
+
+    Args:
+        retriever: The retriever to use for node retrieval.
+        query_bundle: The query bundle for the retriever.
+        max_retries (int): Maximum number of retries.
+
+    Returns:
+        List: A list of retrieved nodes.
+    """
+    attempt = 0
+    while attempt < max_retries:
+        try:
+            return retriever.retrieve(query_bundle)
+        except openai.APITimeoutError as e:
+            logger.warning(f"Timeout error on attempt {attempt + 1}: {e}")
+            attempt += 1
+    raise TimeoutError(f"Failed to retrieve nodes after {max_retries} attempts")
+
+
+def remove_duplicate_nodes(nodes):
+    """
+    Removes duplicate nodes based on their id.
+
+    Args:
+        nodes (List): A list of nodes.
+
+    Returns:
+        List: A list of unique nodes.
+    """
+    logger.info("Removing duplicate nodes")
+    logger.info(f"Node count before deduplication: {len(nodes)}")
+    nodes = list({node.id_: node for node in nodes}.values())
+    logger.info(f"Node count after deduplication: {len(nodes)}")
+
+    return nodes
+
+
+def rerank_nodes(nodes, query_bundle, context, top_n, score_threshold):
+    """
+    Reranks the nodes based on the provided context and thresholds.
+
+    Args:
+        nodes (List): A list of nodes to rerank.
+        query_bundle: The query bundle for the reranker.
+        context: The service context for reranking.
+        top_n (int): The number of top nodes to keep after reranking.
+        score_threshold (int): The threshold for score filtering.
+
+    Returns:
+        List: A list of reranked nodes.
+    """
+    logger.info(
+        f"Reranking top {top_n} nodes with a score threshold of {score_threshold}"
+    )
+    reranker = ModifiedLLMRerank(
+        choice_batch_size=5, top_n=top_n, service_context=context
+    )
+    reranked_nodes = reranker.postprocess_nodes(nodes, query_bundle)
+
+
+    logger.debug(f"RERANKED NODES:\n\n")
+    for node in reranked_nodes:
+        file_info = node.metadata.get("file_name") or node.metadata.get("file_path")
+        node_info = (
+            f"FILE INFO: {file_info}\n"
+            f"NODE ID: {node.id_}\n"
+            f"NODE Score: {node.score}\n"
+            f"NODE Length: {len(node.text)}\n"
+            f"NODE Text: {node.text}\n-----------\n"
+        )
+        logger.debug(node_info)
+
+    filtered_nodes = [node for node in reranked_nodes if node.score > score_threshold]
+    logger.info(f"Number of nodes after re-ranking and filtering: {len(filtered_nodes)}")
+
+    return filtered_nodes
 
 
 def get_informed_answer(
