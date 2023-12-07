@@ -627,6 +627,9 @@ def consult_archive_agent(domain_description, question):
         question=question,
         docs_dir=DOMAIN_KNOWLEDGE_DOCS_DIR,
         storage_dir=DOMAIN_KNOWLEDGE_STORAGE_DIR,
+        vector_top_k=80,
+        reranker_top_n=20,
         rerank=True,
+        fusion=True,
     )
 

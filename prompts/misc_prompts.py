@@ -2,6 +2,8 @@
 This file containts various prompts for agents and other llms.
 """
 
+from llama_index.prompts import PromptTemplate
+from llama_index.prompts.prompt_type import PromptType
 
 AGENT_SYSTEM_PROMPT_TEMPLATE = """PREFACE:
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
@@ -311,3 +313,167 @@ AGENT_SYSTEM_MESSAGE:
 
 DESCRIPTION:
 """
+
+
+CHOICE_SELECT_PROMPT_TMPL = (
+    "A list of NUMBERED_DOCUMENTS is shown below. "
+    "A QUESTION is also provided. \n"
+    "Please give a detailed analysis comparing each document to the context of the QUESTION, talking through your thoughts step by step, and rate each document on a scale of 1-10 based on how relevant you think \n"
+    "the DOCUMENT_CONTENT is to the context of the QUESTION.  \n"
+    "Do not include any documents that are not relevant to the question. \n"
+    "Your response must be a JSON object with the following format: \n"
+    "{{\n"
+    '    "answer": [\n'
+    "        {{\n"
+    '            "document_number": <int>,\n'
+    '            "file_path": <string>,\n'
+    '            "analysis_of_relevance": <string>\n'
+    '            "rating": <float>\n'
+    "        }},\n"
+    "        ...\n"
+    "    ]\n"
+    "}}\n\n"
+    "Example DOCUMENTS: \n"
+    "------------------------------------------------------------\n"
+    "DOCUMENT_NUMBER: 1\n"
+    "DOCUMENT_CONTENT"
+    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    "file_path: <file_path>\n\n"
+    "<document content>\n"
+    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    "------------------------------------------------------------\n"
+    "DOCUMENT_NUMBER: 2\n"
+    "DOCUMENT_CONTENT"
+    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    "file_path: <file_path>\n\n"
+    "<document content>\n"
+    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    "...\n\n"
+    "------------------------------------------------------------\n"
+    "DOCUMENT_NUMBER: 10\n"
+    "DOCUMENT_CONTENT"
+    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    "file_path: <file_path>\n\n"
+    "<document content>\n"
+    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
+    "Example QUESTION: <question>\n"
+    "Example Response:\n"
+    "{{\n"
+    '    "answer": [\n'
+    "        {{\n"
+    '            "document_number": 1,\n'
+    '            "file_path": <file_path_of_doc_1>,\n'
+    '            "analysis_of_relevance": <detailed_analysis_1>,\n'
+    '            "rating": 7\n'
+    "        }},\n"
+    "        {{\n"
+    '            "document_number": 2,\n'
+    '            "file_path": <file_path_of_doc_2>,\n'
+    '            "analysis_of_relevance": <detailed_analysis_2>,\n'
+    '            "rating": 4\n'
+    "        }},\n"
+    "        ...\n"
+    "        {{\n"
+    '            "document_number": 10,\n'
+    '            "file_path": <file_path_of_doc_10>,\n'
+    '            "analysis_of_relevance": <detailed_analysis_10>,\n'
+    '            "rating": 4\n'
+    "        }},\n"
+    "    ]\n"
+    "}}\n\n"
+    "IMPORTANT: MAKE SURE the 'document_number' value in your response corresponds to the correct DOCUMENT_NUMBER. \n\n"
+    "DOCUMENTS:\n"
+    "{context_str}\n"
+    "QUESTION: {query_str}\n"
+    "Response:\n"
+)
+CHOICE_SELECT_PROMPT = PromptTemplate(
+    CHOICE_SELECT_PROMPT_TMPL, prompt_type=PromptType.CHOICE_SELECT
+)
+
+
+RAG_FUSION_DESCRIPTION = """Limitations of RAG (Retrieval Augmented Generation):
+
+Constraints with Current Search Technologies: RAG is limited by the same things limiting our retrieval-based lexical and vector search technologies.
+Human Search Inefficiencies: Humans are not great at writing what they want into search systems, such as typos, vague queries, or limited vocabulary, which often lead to missing the vast reservoir of information that lies beyond the obvious top search results. While RAG assists, it hasn’t entirely solved this problem.
+Over-Simplification of Search: Our prevalent search paradigm linearly maps queries to answers, lacking the depth to understand the multi-dimensional nature of human queries. This linear model often fails to capture the nuances and contexts of more complex user inquiries, resulting in less relevant results.
+Google keyword tends showing an increase in searched for Retrieval Augmented Generation
+Searches for RAG (Retrieval Augmented Generation) skyrocketing in 2023. Screenshot by author from Google Trends Sept 2023.
+So, what can we do to address these issues? We need a system that doesn’t just retrieve what we ask but grasps the nuance behind our queries without needing ever-more advanced LLMs. Recognising these challenges and inspired by the possibilities, I developed a more refined solution: RAG-Fusion.
+
+Why RAG-Fusion?
+
+Addressing Gaps: It tackles the constraints inherent in RAG by generating multiple user queries and reranking the results.
+Enhanced Search: Utilises Reciprocal Rank Fusion and custom vector score weighting for comprehensive, accurate results.
+RAG-Fusion aspires to bridge the gap between what users explicitly ask and what they intend to ask, inching closer to uncovering the transformative knowledge that typically remains hidden.
+
+Query Duplication with a Twist: Translate a user’s query into similar, yet distinct queries via an LLM.
+
+Multi-Query Generation
+Why Multiple Queries?
+
+In traditional search systems, users often input a single query to find information. While this approach is straightforward, it has limitations. A single query may not capture the full scope of what the user is interested in, or it may be too narrow to yield comprehensive results. This is where generating multiple queries from different perspectives comes into play.
+
+Technical Implementation (Prompt Engineering)
+
+Flow Diagram of Multi-Query Generation: Leveraging Prompt Engineering and Natural Language Models to Broaden Search Horizons and Enhance Result Quality.
+Flow Diagram of Multi-Query Generation: Leveraging Prompt Engineering and Natural Language Models to Broaden Search Horizons and Enhance Result Quality. Image by author.
+The use of prompt engineering is crucial to generate multiple queries that are not only similar to the original query but also offer different angles or perspectives.
+
+Here’s how it works:
+
+Function Call to Language Model: The function calls a language model (in this case, chatGPT). This method expects a specific instruction set, often described as a “system message”, to guide the model. For example, the system message here instructs the model to act as an “AI assistant.”
+Natural Language Queries: The model then generates multiple queries based on the original query.
+Diversity and Coverage: These queries aren’t just random variations. They are carefully generated to offer different perspectives on the original question. For instance, if the original query was about the “impact of climate change,” the generated queries might include angles like “economic consequences of climate change,” “climate change and public health,” etc.
+This approach ensures that the search process considers a broader range of information, thereby increasing the quality and depth of the generated summary."""
+
+
+RAG_FUSION_PROMPT = (
+    "You are an expert at generating query variations that align with the goals of the query variations as described by RAG_FUSION below. Given the input QUESTION, generate {number_of_variations} question/query variations that align with the goals of the query variations as described by RAG_FUSION below. Your RESPONSE should be a JSON object with the following format:\n"
+    "{{\n"
+    '    "original_query": <string>,\n'
+    '    "query_variations": [\n'
+    "        {{\n"
+    '            "query_number": <int>,\n'
+    '            "query": <string>\n'
+    "        }},\n"
+    "        ...\n"
+    "    ]\n"
+    "}}\n\n"
+    "RAG_FUSION:\n"
+    "---------------------\n"
+    f"{RAG_FUSION_DESCRIPTION}\n"
+    "---------------------\n"
+    "QUESTION: {query}\n"
+    "RESPONSE:\n"
+)
+
+DOMAIN_QA_PROMPT_TMPL_STR = (
+        f"You are an expert at the following DOMAIN which is described in the DOMAIN_DESCRIPTION. Given the following DOMAIN_SPECIFIC_CONTEXT, please answer the QUESTION to the best of your ability. If the information required for the answer cannot be found in the DOMAIN_SPECIFIC_CONTEXT, then reply with 'DOMAIN CONTEXT NOT AVAILABLE'.\n\n"
+        "Your answer must be that of an elite expert. Please! My career depends on it!!\n"
+        "DOMAIN:\n"
+        "---------------------\n"
+        "{domain}\n"
+        "---------------------\n"
+        "DOMAIN_DESCRIPTION:\n"
+        "---------------------\n"
+        "{domain_description}\n"
+        "---------------------\n"
+        "RELEVANT_CONTEXT:\n"
+        "---------------------\n"
+        "{context_str}\n"
+        "---------------------\n"
+        "QUESTION: {query_str}\n"
+        "ANSWER: "
+    )
+
+GENERAL_QA_PROMPT_TMPL_STR = (
+    f"You are a helpful assistant. Please use the provided RELEVANT_CONTEXT to ANSWER the given QUESTION.\n\n"
+    "Your answer must be that of an elite expert. Please! My career depends on it!!\n"
+    "RELEVANT_CONTEXT:\n"
+    "---------------------\n"
+    "{context_str}\n"
+    "---------------------\n"
+    "QUESTION: {query_str}\n"
+    "ANSWER: "
+)

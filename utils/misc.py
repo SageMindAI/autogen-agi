@@ -244,3 +244,10 @@ def extract_json_response(message):
         response = fix_broken_json(message)
 
     return response
+
+
+def format_incrementally(template_str, data):
+    for key, value in data.items():
+        placeholder = '{' + key + '}'
+        template_str = template_str.replace(placeholder, value)
+    return template_str

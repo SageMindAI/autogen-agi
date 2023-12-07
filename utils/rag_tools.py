@@ -36,14 +36,25 @@ from llama_index.response_synthesizers import (
     ResponseMode,
     get_response_synthesizer,
 )
+from llama_index.query_engine import RetrieverQueryEngine
+from llama_index.storage.docstore import SimpleDocumentStore
+from llama_index.storage import StorageContext
+from llama_index.retrievers.auto_merging_retriever import AutoMergingRetriever
 from llama_index.prompts import PromptTemplate
 from pathlib import Path
 from llama_index import download_loader
 from llama_index.node_parser import LangchainNodeParser
+from autogen.token_count_utils import count_token
 
 from langchain.text_splitter import RecursiveCharacterTextSplitter, Language
 
-from .misc import extract_json_response
+from .misc import extract_json_response, light_gpt4_wrapper_autogen, format_incrementally
+from prompts.misc_prompts import (
+    CHOICE_SELECT_PROMPT,
+    RAG_FUSION_PROMPT,
+    DOMAIN_QA_PROMPT_TMPL_STR,
+    GENERAL_QA_PROMPT_TMPL_STR
+)
 
 import logging
 
@@ -68,6 +79,25 @@ config_list4 = [
         "api_key": os.environ["OPENAI_API_KEY"],
     }
 ]
+
+config_list3 = [
+    {
+        "model": "gpt-3.5-turbo-1106",
+        "api_key": os.environ["OPENAI_API_KEY"],
+    }
+]
+
+config_list4 = [
+    {
+        "model": "gpt-4-1106-preview",
+        "api_key": os.environ["OPENAI_API_KEY"],
+    }
+]
+
+
+llm3_general = OpenAI(model="gpt-3.5-turbo-1106", temperature=0.1)
+llm3_synthesizer = OpenAI(model="gpt-3.5-turbo-1106", temperature=0.1, max_tokens=1000)
+llm4 = OpenAI(model="gpt-4-1106-preview", temperature=0.5)
 
 
 class JSONLLMPredictor(LLMPredictor):
@@ -101,84 +131,7 @@ class JSONLLMPredictor(LLMPredictor):
         return output
 
 
-CHOICE_SELECT_PROMPT_TMPL = (
-    "A list of NUMBERED_DOCUMENTS is shown below. "
-    "A QUESTION is also provided. \n"
-    "Please give a detailed analysis comparing each document to the context of the QUESTION, talking through your thoughts step by step, and rate each document on a scale of 1-10 based on how relevant you think \n"
-    "the DOCUMENT_CONTENT is to the context of the QUESTION.  \n"
-    "Do not include any documents that are not relevant to the question. \n"
-    "Your response must be a JSON object with the following format: \n"
-    "{{\n"
-    '    "answer": [\n'
-    "        {{\n"
-    '            "document_number": <int>,\n'
-    '            "file_path": <string>,\n'
-    '            "analysis_of_relevance": <string>\n'
-    '            "rating": <float>\n'
-    "        }},\n"
-    "        ...\n"
-    "    ]\n"
-    "}}\n\n"
-    "Example DOCUMENTS: \n"
-    "------------------------------------------------------------\n"
-    "DOCUMENT_NUMBER: 1\n"
-    "DOCUMENT_CONTENT"
-    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
-    "file_path: <file_path>\n\n"
-    "<document content>\n"
-    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
-    "------------------------------------------------------------\n"
-    "DOCUMENT_NUMBER: 2\n"
-    "DOCUMENT_CONTENT"
-    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
-    "file_path: <file_path>\n\n"
-    "<document content>\n"
-    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
-    "...\n\n"
-    "------------------------------------------------------------\n"
-    "DOCUMENT_NUMBER: 10\n"
-    "DOCUMENT_CONTENT"
-    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
-    "file_path: <file_path>\n\n"
-    "<document content>\n"
-    "-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#-#\n"
-    "Example QUESTION: <question>\n"
-    "Example Response:\n"
-    "{{\n"
-    '    "answer": [\n'
-    "        {{\n"
-    '            "document_number": 1,\n'
-    '            "file_path": <file_path_of_doc_1>,\n'
-    '            "analysis_of_relevance": <detailed_analysis_1>,\n'
-    '            "rating": 7\n'
-    "        }},\n"
-    "        {{\n"
-    '            "document_number": 2,\n'
-    '            "file_path": <file_path_of_doc_2>,\n'
-    '            "analysis_of_relevance": <detailed_analysis_2>,\n'
-    '            "rating": 4\n'
-    "        }},\n"
-    "        ...\n"
-    "        {{\n"
-    '            "document_number": 10,\n'
-    '            "file_path": <file_path_of_doc_10>,\n'
-    '            "analysis_of_relevance": <detailed_analysis_10>,\n'
-    '            "rating": 4\n'
-    "        }},\n"
-    "    ]\n"
-    "}}\n\n"
-    "IMPORTANT: MAKE SURE the 'document_number' value in your response corresponds to the correct DOCUMENT_NUMBER. \n\n"
-    "DOCUMENTS:\n"
-    "{context_str}\n"
-    "QUESTION: {query_str}\n"
-    "Response:\n"
-)
-CHOICE_SELECT_PROMPT = PromptTemplate(
-    CHOICE_SELECT_PROMPT_TMPL, prompt_type=PromptType.CHOICE_SELECT
-)
-
-
-class BetterLLMRerank(LLMRerank):
+class ModifiedLLMRerank(LLMRerank):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -243,11 +196,7 @@ class BetterLLMRerank(LLMRerank):
         self,
         summary_nodes: List[BaseNode],
     ) -> str:
-        """Default format node batch function.
-
-        Assign each summary node a number, and format the batch of nodes.
-
-        """
+        """Assign each summary node a number, and format the batch of nodes."""
         fmt_node_txts = []
         for idx in range(len(summary_nodes)):
             number = idx + 1
@@ -285,15 +234,137 @@ def create_index(docs_dir, storage_dir):
     return index
 
 
+def rag_fusion(query, number_of_variations=4):
+    print("GETTING QUERY VARIATIONS FOR RAG FUSION...")
+
+    rag_fusion_prompt = RAG_FUSION_PROMPT.format(
+        query=query, number_of_variations=number_of_variations
+    )
+    rag_fusion_response = light_gpt4_wrapper_autogen(
+        query=rag_fusion_prompt, return_json=True
+    )
+
+    print("RAG FUSION RESPONSE: ", rag_fusion_response)
+
+    query_variations = [
+        variation["query"] for variation in rag_fusion_response["query_variations"]
+    ]
+
+    return query_variations
+
+
+def get_retrieved_nodes(
+    query_str,
+    index,
+    vector_top_k=40,
+    reranker_top_n=20,
+    rerank=True,
+    score_threshold=5,
+    fusion=True,
+):
+    json_llm_predictor = JSONLLMPredictor(llm=llm3_general)
+
+    service_context3_general = ServiceContext.from_defaults(
+        llm_predictor=json_llm_predictor
+    )
+
+    reranker_context = service_context3_general
+    print(f"GETTING TOP NODES: {vector_top_k}")
+    # configure retriever
+
+    if fusion:
+        query_variations = rag_fusion(query_str)
+        query_variations.append(query_str)
+        print("QUERY VARIATIONS: ", query_variations)
+    else:
+        query_variations = [query_str]
+
+    retrieved_nodes = []
+    num_of_variations = len(query_variations)
+    print("NUM OF VARIATIONS: ", num_of_variations)
+    results_per_variation = int(vector_top_k / num_of_variations)
+    print("RESULTS PER VARIATION: ", results_per_variation)
+    for variation in query_variations:
+        base_retriever = VectorIndexRetriever(
+            index=index,
+            similarity_top_k=results_per_variation,
+        )
+
+        retriever = AutoMergingRetriever(
+            base_retriever, index.storage_context, verbose=False
+        )
+        query_bundle = QueryBundle(variation)
+        variation_nodes = None
+        while variation_nodes is None:
+            try:
+                variation_nodes = retriever.retrieve(query_bundle)
+            except openai.APITimeoutError as e:
+                print("TIMEOUT_ERROR: ", e)
+                continue
+        variation_nodes = retriever.retrieve(query_bundle)
+
+        print(f"ORIGINAL NODES for query: {variation}\n\n")
+        for node in variation_nodes:
+            file_info = node.metadata.get('file_name') or node.metadata.get('file_path')
+            print(f"FILE INFO: {file_info}")
+            print("NODE ID: ", node.id_)
+            print("NODE Score: ", node.score)
+            print("NODE Length: ", len(node.text))
+            print("NODE Text: ", node.text, '\n-----------\n')
+
+        # add variation nodes to retrieved nodes
+        retrieved_nodes.extend(variation_nodes)
+
+    # remove duplicate nodes by id_
+    print("NODE COUNT BEFORE REMOVING DUPLICATES: ", len(retrieved_nodes))
+    retrieved_nodes = list({node.id_: node for node in retrieved_nodes}.values())
+    print("NODE COUNT AFTER REMOVING DUPLICATES: ", len(retrieved_nodes))
+
+    if rerank:
+        print(f"GETTING RERANKED NODES: {reranker_top_n}")
+        # configure reranker
+        reranker = ModifiedLLMRerank(
+            choice_batch_size=5,
+            top_n=reranker_top_n,
+            service_context=reranker_context,
+        )
+        print("RERANKING NODES...")
+        retrieved_nodes = reranker.postprocess_nodes(retrieved_nodes, query_bundle)
+
+        # filter out nodes with low scores
+        retrieved_nodes = [
+            node for node in retrieved_nodes if node.score > score_threshold
+        ]
+
+        print(f"RERANKED_NODES: {len(retrieved_nodes)}\n\n")
+        for node in retrieved_nodes:
+            file_info = node.metadata.get("file_name") or node.metadata.get("file_path")
+            print(f"FILE INFO: {file_info}")
+            print("NODE ID: ", node.id_)
+            print("NODE Score: ", node.score)
+            print("NODE Length: ", len(node.text))
+            print("NODE Text: ", node.text, "\n-----------\n")
+
+    # count tokens in nodes
+    total_tokens = 0
+    for node in retrieved_nodes:
+        total_tokens += count_token(node.text)
+
+    print("TOTAL NODE TOKENS: ", total_tokens)
+
+    return retrieved_nodes
+
+
 def get_informed_answer(
     question,
-    domain,
-    domain_description,
     docs_dir,
     storage_dir,
+    domain=None,
+    domain_description=None,
     vector_top_k=40,
     reranker_top_n=20,
     rerank=False,
+    fusion=False,
 ):
     llm3_general = OpenAI(model="gpt-3.5-turbo-1106", temperature=0.1)
     llm3_synthesizer = OpenAI(
@@ -312,65 +383,36 @@ def get_informed_answer(
     reranker_context = service_context3_general
     response_synthesizer_context = service_context4
 
-    STORAGE_DIR = f"{storage_dir}/{domain}"
-    DOCS_DIR = f"{docs_dir}/{domain}"
+    if domain is None:
+        STORAGE_DIR = storage_dir
+        DOCS_DIR = docs_dir
+    else:
+        STORAGE_DIR = f"{storage_dir}/{domain}"
+        DOCS_DIR = f"{docs_dir}/{domain}"
+
 
     # check if storage already exists
     if not os.path.exists(STORAGE_DIR):
-        index = create_index(
-            docs_dir=DOCS_DIR, storage_dir=STORAGE_DIR
-        )
+        index = create_index(docs_dir=DOCS_DIR, storage_dir=STORAGE_DIR)
     else:
         # load the existing index
         print("LOADING INDEX AT: ", STORAGE_DIR)
         storage_context = StorageContext.from_defaults(persist_dir=STORAGE_DIR)
         index = load_index_from_storage(storage_context)
 
-    def get_retrieved_nodes(query_str, vector_top_k=40, reranker_top_n=20, rerank=True):
-        print(f"GETTING TOP NODES: {vector_top_k}")
-        query_bundle = QueryBundle(query_str)
-        # configure retriever
-        retriever = VectorIndexRetriever(
-            index=index,
-            similarity_top_k=vector_top_k,
-        )
-        retrieved_nodes = retriever.retrieve(query_bundle)
-
-        # print("ORIGINAL NODES:\n\n")
-        # for node in retrieved_nodes:
-        #     file_info = node.metadata.get('file_name') or node.metadata.get('file_path')
-        #     print(f"FILE INFO: {file_info}")
-        #     print(node)
-        #     print("\n\n")
-
-        if rerank:
-            print(f"GETTING RERANKED NODES: {reranker_top_n}")
-            # configure reranker
-            reranker = BetterLLMRerank(
-                choice_batch_size=5,
-                top_n=reranker_top_n,
-                service_context=reranker_context,
-            )
-            # print("RERANKING NODES...")
-            retrieved_nodes = reranker.postprocess_nodes(retrieved_nodes, query_bundle)
-
-            # print(f"RERANKED_NODES: {len(retrieved_nodes)}\n\n")
-            # for node in retrieved_nodes:
-            #     file_info = node.metadata.get("file_name") or node.metadata.get(
-            #         "file_path"
-            #     )
-            #     print(f"FILE INFO: {file_info}")
-            #     print(node)
-            #     print("\n\n")
-
-        return retrieved_nodes
-
     nodes = None
 
     while nodes is None:
         try:
-            nodes = get_retrieved_nodes(question, vector_top_k, reranker_top_n, rerank)
-        except IndexError as e:
+            nodes = get_retrieved_nodes(
+                query_str=question,
+                index=index,
+                vector_top_k=vector_top_k,
+                reranker_top_n=reranker_top_n,
+                rerank=rerank,
+                fusion=fusion,
+            )
+        except IndexError as e: # This happens with the default re-ranker, but not the modified one due to the JSON response
             print("INDEX ERROR: ", e)
             continue
 
@@ -382,33 +424,21 @@ def get_informed_answer(
     print("\nRAG QUESTION:\n\n")
     print(question)
 
-    qa_prompt_tmpl_str = (
-        f"You are an expert at the following DOMAIN which is described in the DOMAIN_DESCRIPTION. Given the following DOMAIN_SPECIFIC_CONTEXT, please answer the QUESTION to the best of your ability. If the information required for the answer cannot be found in the DOMAIN_SPECIFIC_CONTEXT, then reply with 'DOMAIN CONTEXT NOT AVAILABLE'.\n\n"
-        "Your answer must be that of an elite expert. Please! My career depends on it!!\n"
-        "DOMAIN:\n"
-        "---------------------\n"
-        f"{domain}\n"
-        "---------------------\n"
-        "DOMAIN_DESCRIPTION:\n"
-        "---------------------\n"
-        f"{domain_description}\n"
-        "---------------------\n"
-        "RELEVANT_CONTEXT:\n"
-        "---------------------\n"
-        "{context_str}\n"
-        "---------------------\n"
-        "QUESTION: {query_str}\n"
-        "ANSWER: "
-    )
-    text_qa_template = PromptTemplate(qa_prompt_tmpl_str)
+    if domain is None or domain_description is None:
+        text_qa_template_str = GENERAL_QA_PROMPT_TMPL_STR
+    else:
+        data = {
+            "domain": domain,
+            "domain_description": domain_description,
+        }
+        text_qa_template_str = format_incrementally(DOMAIN_QA_PROMPT_TMPL_STR, data)
+    text_qa_template = PromptTemplate(text_qa_template_str)
 
     response_synthesizer = get_response_synthesizer(
         response_mode=ResponseMode.COMPACT,
         text_qa_template=text_qa_template,
-        # refine_template=refine_template,
         service_context=response_synthesizer_context,
     )
 
     response = response_synthesizer.synthesize(question, nodes=nodes)
-    # print("LENGTH: ", len(response.source_nodes))
     return response
