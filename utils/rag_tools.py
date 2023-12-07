@@ -88,13 +88,11 @@ class JSONLLMPredictor(LLMPredictor):
         elif self._llm.metadata.is_chat_model:
             messages = prompt.format_messages(llm=self._llm, **prompt_args)
             messages = self._extend_messages(messages)
-            # print("CHAT PRDICTION")
             chat_response = self._llm.chat(messages)
             output = chat_response.message.content or ""
         else:
             formatted_prompt = prompt.format(llm=self._llm, **prompt_args)
             formatted_prompt = self._extend_prompt(formatted_prompt)
-            # print("COMPLETION PREDICTION")
             response = self._llm.complete(formatted_prompt, return_json=True)
             output = response.text
 
@@ -201,16 +199,12 @@ class BetterLLMRerank(LLMRerank):
 
             query_str = query_bundle.query_str
             fmt_batch_str = self._format_node_batch_fn(nodes_batch)
-            # call each batch independently
-            # print("FMAT_BATCH_STR: ", fmt_batch_str)
-            # print("QUERY_STR: ", query_str)
             print("RERANKING BATCH...")
             raw_response = self.service_context.llm_predictor.predict(
                 self.choice_select_prompt,
                 context_str=fmt_batch_str,
                 query_str=query_str,
             )
-            # print("RAW_RESPONSE: ", raw_response)
             json_response = extract_json_response(raw_response)
 
             raw_choices, relevances = self._parse_choice_select_answer_fn(

@@ -13,8 +13,8 @@ import json
 
 
 
-from src.utils.misc import light_gpt3_wrapper_autogen
-from src.utils.fetch_docs import scrape_documentation_page
+from .misc import light_gpt3_wrapper_autogen
+from .fetch_docs import scrape_documentation_page
 
 
 from dotenv import load_dotenv
