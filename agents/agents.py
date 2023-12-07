@@ -2,7 +2,7 @@ import autogen
 import requests
 import subprocess
 
-from agent_prompts import (
+from prompts.agent_prompts import (
     PYTHON_EXPERT_SYSTEM_PROMPT,
     FUNCTION_CALLING_AGENT_SYSTEM_PROMPT,
     USER_PROXY_SYSTEM_PROMPT,
@@ -21,7 +21,7 @@ from agent_prompts import (
 
 from autogen import OpenAIWrapper
 
-from ddgsearch import ddgsearch
+from utils.ddgsearch import ddgsearch
 from duckduckgo_search import ddg, DDGS
 
 from pprint import pprint
@@ -45,7 +45,7 @@ from utils.misc import (
     extract_json_response,
 )
 
-from agent_functions import (
+from agents.agent_functions import (
     agent_functions,
     read_file,
     read_multiple_files,

@@ -1,16 +1,14 @@
 import autogen
 
+from autogen import GroupChat, GroupChatManager
 
-from modified_group_chat import ModifiedGroupChat, ModifiedGroupChatManager
-
-from predifined_agents import (
+from agents.agents import (
     user_proxy,
     code_reviewer,
     agent_awareness_expert,
     python_expert,
     function_calling_agent,
     agi_gestalt_agent,
-    code_execution_agent,
     creative_solution_agent,
     first_principles_thinker_agent,
     out_of_the_box_thinker_agent,
@@ -67,15 +65,12 @@ AGENT_TEAM = [
     task_comprehension_agent
 ]
 
-groupchat = ModifiedGroupChat(
+groupchat = GroupChat(
     agents=AGENT_TEAM,
     messages=[],
     max_round=100,
-    persona_discussion=True,
-    inject_persona_discussion=True,
-    continue_chat=False,
 )
-manager = ModifiedGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
+manager = GroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
 message = """I'm interested in building autonomous agents using the autogen python library. Can you show me a complete example of how to do this? The example should show how to instantiate autogen automous agents. The request given to the agents will be: "Please execute a python script that prints 10 dad jokes". I want the agents to run completely autonomously without any human intervention. Note: for env variables please use 'load_dotenv' from the 'dotenv' python library. If you need OpenAI keys use 'os.environ["OPENAI_API_KEY"]' to access them."""
 
@@ -84,7 +79,3 @@ user_proxy.initiate_chat(
     clear_history=False,
     message=message,
 )
-
-# TODO: Add a function that allows injection of a new agent into the group chat.
-
-# TODO: Add a function that allows spawning a new group chat with a new set of agents.
