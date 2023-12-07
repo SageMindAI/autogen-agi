@@ -130,6 +130,7 @@ class JSONLLMPredictor(LLMPredictor):
         else:
             formatted_prompt = prompt.format(llm=self._llm, **prompt_args)
             formatted_prompt = self._extend_prompt(formatted_prompt)
+            # return_json=True is the only difference from the original function and currently only applies to the latest OpenAI GPT 3.5 and 4 models.
             response = self._llm.complete(formatted_prompt, return_json=True)
             output = response.text
 
@@ -138,9 +139,15 @@ class JSONLLMPredictor(LLMPredictor):
 
 
 class ModifiedLLMRerank(LLMRerank):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    """
+    A class extending LLMRerank to provide customized reranking functionality.
+    """
 
+    def __init__(self, **kwargs):
+        """
+        Initialize the ModifiedLLMRerank.
+        """
+        super().__init__(**kwargs)
         self.choice_select_prompt = CHOICE_SELECT_PROMPT
 
     def _postprocess_nodes(
@@ -218,13 +225,30 @@ class ModifiedLLMRerank(LLMRerank):
 
 
 def create_index(docs_dir, storage_dir):
+    """
+    Creates an index from documents located in the specified directory.
+
+    NOTE: This function will continue to be customized to support more file/data types.
+
+    TODO: Take advantage of the "HierarchicalNodeParser" for generic text.
+
+    Args:
+        docs_dir (str): The directory containing the documents.
+        storage_dir (str): The directory to store the created index.
+
+    Returns:
+        VectorStoreIndex: The created index.
+    """
     IPYNBReader = download_loader("IPYNBReader")
     ipynb_loader = IPYNBReader(concatenate=True)
 
-    # load the documents and create the index
-    documents = SimpleDirectoryReader(
-        docs_dir, recursive=True, file_extractor={".ipynb": ipynb_loader}
-    ).load_data()
+    try:
+        documents = SimpleDirectoryReader(
+            docs_dir, recursive=True, file_extractor={".ipynb": ipynb_loader}
+        ).load_data()
+    except Exception as e:
+        logger.error(f"Error reading documents: {e}")
+        raise
 
     parser = LangchainNodeParser(
         RecursiveCharacterTextSplitter.from_language(
@@ -233,30 +257,47 @@ def create_index(docs_dir, storage_dir):
     )
     nodes = parser.get_nodes_from_documents(documents)
     index = VectorStoreIndex(nodes)
-    print("CREATING INDEX AT: ", storage_dir)
-    # store it for later
-    index.storage_context.persist(persist_dir=storage_dir)
+
+    try:
+        print("Creating index at:", storage_dir)
+        index.storage_context.persist(persist_dir=storage_dir)
+    except Exception as e:
+        logger.error(f"Error saving index: {e}")
+        raise
 
     return index
 
 
 def rag_fusion(query, query_context=None, number_of_variations=4):
-    print("GETTING QUERY VARIATIONS FOR RAG FUSION...")
+    """
+    Generates query variations for Retriever-Augmented Generation (RAG) fusion.
 
+    Args:
+        query (str): The original query.
+        query_context (str): Context to enrich the query variations.
+        number_of_variations (int): The number of query variations to generate.
+
+    Returns:
+        List[str]: A list of query variations.
+    """
+    logger.info("Getting query variations for RAG fusion...")
     rag_fusion_prompt = RAG_FUSION_PROMPT.format(
-        query=query, number_of_variations=number_of_variations,
-        query_context=query_context
-    )
-    rag_fusion_response = light_gpt4_wrapper_autogen(
-        query=rag_fusion_prompt, return_json=True
+        query=query,
+        query_context=query_context,
+        number_of_variations=number_of_variations,
     )
 
-    print("RAG FUSION RESPONSE: ", rag_fusion_response)
+    try:
+        rag_fusion_response = light_gpt4_wrapper_autogen(
+            query=rag_fusion_prompt, return_json=True
+        )
+    except Exception as e:
+        logger.error(f"Error in RAG fusion: {e}")
+        raise
 
     query_variations = [
         variation["query"] for variation in rag_fusion_response["query_variations"]
     ]
-
     return query_variations
 
 

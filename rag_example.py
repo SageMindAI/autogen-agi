@@ -38,6 +38,7 @@ load_dotenv()
 STORAGE_DIR = "./storage"
 DOCS_DIR = "./docs"
 
+# NOTE: This assumes you have an "autogen" directory under the "docs" directory with autogen content (ex: the autogen cloned repo)
 domain = "autogen"
 domain_description = "autogen autonomous agent framework"
 
