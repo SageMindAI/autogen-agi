@@ -19,6 +19,7 @@ from llama_index import (
     StorageContext,
     load_index_from_storage,
     ServiceContext,
+    download_loader,
 )
 from llama_index.bridge.pydantic import BaseModel
 from llama_index.indices.postprocessor import LLMRerank
@@ -239,11 +240,12 @@ def create_index(docs_dir, storage_dir):
     return index
 
 
-def rag_fusion(query, number_of_variations=4):
+def rag_fusion(query, query_context=None, number_of_variations=4):
     print("GETTING QUERY VARIATIONS FOR RAG FUSION...")
 
     rag_fusion_prompt = RAG_FUSION_PROMPT.format(
-        query=query, number_of_variations=number_of_variations
+        query=query, number_of_variations=number_of_variations,
+        query_context=query_context
     )
     rag_fusion_response = light_gpt4_wrapper_autogen(
         query=rag_fusion_prompt, return_json=True
@@ -266,6 +268,7 @@ def get_retrieved_nodes(
     rerank=True,
     score_threshold=5,
     fusion=True,
+    query_context=None,
 ):
     json_llm_predictor = JSONLLMPredictor(llm=llm3_general)
 
@@ -278,7 +281,7 @@ def get_retrieved_nodes(
     # configure retriever
 
     if fusion:
-        query_variations = rag_fusion(query_str)
+        query_variations = rag_fusion(query_str, query_context)
         query_variations.append(query_str)
         print("QUERY VARIATIONS: ", query_variations)
     else:
@@ -403,6 +406,7 @@ def get_informed_answer(
                 reranker_top_n=reranker_top_n,
                 rerank=rerank,
                 fusion=fusion,
+                query_context=domain_description,
             )
         except (
             IndexError

@@ -53,8 +53,8 @@ def main():
                 storage_dir=STORAGE_DIR,
                 domain=domain,
                 domain_description=domain_description,
-                vector_top_k=5,
-                reranker_top_n=3,
+                vector_top_k=10,
+                reranker_top_n=2,
                 rerank=True,
                 fusion=True,
             )

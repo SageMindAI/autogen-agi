@@ -397,8 +397,7 @@ RAG_FUSION_DESCRIPTION = """Limitations of RAG (Retrieval Augmented Generation):
 Constraints with Current Search Technologies: RAG is limited by the same things limiting our retrieval-based lexical and vector search technologies.
 Human Search Inefficiencies: Humans are not great at writing what they want into search systems, such as typos, vague queries, or limited vocabulary, which often lead to missing the vast reservoir of information that lies beyond the obvious top search results. While RAG assists, it hasn’t entirely solved this problem.
 Over-Simplification of Search: Our prevalent search paradigm linearly maps queries to answers, lacking the depth to understand the multi-dimensional nature of human queries. This linear model often fails to capture the nuances and contexts of more complex user inquiries, resulting in less relevant results.
-Google keyword tends showing an increase in searched for Retrieval Augmented Generation
-Searches for RAG (Retrieval Augmented Generation) skyrocketing in 2023. Screenshot by author from Google Trends Sept 2023.
+
 So, what can we do to address these issues? We need a system that doesn’t just retrieve what we ask but grasps the nuance behind our queries without needing ever-more advanced LLMs. Recognising these challenges and inspired by the possibilities, I developed a more refined solution: RAG-Fusion.
 
 Why RAG-Fusion?
@@ -429,7 +428,7 @@ This approach ensures that the search process considers a broader range of infor
 
 
 RAG_FUSION_PROMPT = (
-    "You are an expert at generating query variations that align with the goals of the query variations as described by RAG_FUSION below. Given the input QUESTION, generate {number_of_variations} question/query variations that align with the goals of the query variations as described by RAG_FUSION below. Your RESPONSE should be a JSON object with the following format:\n"
+    "You are an expert at generating query variations that align with the goals of the query variations as described by RAG_FUSION below. Given the input QUESTION, generate {number_of_variations} question/query variations that align with the goals of the query variations as described by RAG_FUSION below. If QUERY_CONTEXT is given, use it to enrich the detail and quality of your variations. Your RESPONSE should be a JSON object with the following format:\n"
     "{{\n"
     '    "original_query": <string>,\n'
     '    "query_variations": [\n'
@@ -443,6 +442,10 @@ RAG_FUSION_PROMPT = (
     "RAG_FUSION:\n"
     "---------------------\n"
     f"{RAG_FUSION_DESCRIPTION}\n"
+    "---------------------\n"
+    "DOMAIN_CONTEXT:\n"
+    "---------------------\n"
+    "{query_context}\n"
     "---------------------\n"
     "QUESTION: {query}\n"
     "RESPONSE:\n"
