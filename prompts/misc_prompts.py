@@ -2,9 +2,6 @@
 This file containts various prompts for agents and other llms.
 """
 
-from llama_index.prompts import PromptTemplate
-from llama_index.prompts.prompt_type import PromptType
-
 AGENT_SYSTEM_PROMPT_TEMPLATE = """PREFACE:
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
 You are an agent described by the YOUR_ROLE section below.
@@ -388,9 +385,6 @@ CHOICE_SELECT_PROMPT_TMPL = (
     "{context_str}\n"
     "QUESTION: {query_str}\n"
     "Response:\n"
-)
-CHOICE_SELECT_PROMPT = PromptTemplate(
-    CHOICE_SELECT_PROMPT_TMPL, prompt_type=PromptType.CHOICE_SELECT
 )
 
 

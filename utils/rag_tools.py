@@ -27,7 +27,9 @@ from llama_index.indices.query.schema import QueryBundle
 from llama_index.llm_predictor import LLMPredictor
 from llama_index.llms import OpenAI
 from llama_index.node_parser import LangchainNodeParser
-from llama_index.prompts.base import BasePromptTemplate, PromptTemplate
+from llama_index.prompts.base import BasePromptTemplate
+from llama_index.prompts import PromptTemplate
+from llama_index.prompts.prompt_type import PromptType
 from llama_index.retrievers import VectorIndexRetriever, AutoMergingRetriever
 from llama_index.retrievers.auto_merging_retriever import AutoMergingRetriever
 from llama_index.response_synthesizers import ResponseMode, get_response_synthesizer
@@ -43,7 +45,7 @@ from .misc import (
     format_incrementally,
 )
 from prompts.misc_prompts import (
-    CHOICE_SELECT_PROMPT,
+    CHOICE_SELECT_PROMPT_TMPL,
     RAG_FUSION_PROMPT,
     DOMAIN_QA_PROMPT_TMPL_STR,
     GENERAL_QA_PROMPT_TMPL_STR,
@@ -138,6 +140,9 @@ class ModifiedLLMRerank(LLMRerank):
         Initialize the ModifiedLLMRerank.
         """
         super().__init__(**kwargs)
+        CHOICE_SELECT_PROMPT = PromptTemplate(
+            CHOICE_SELECT_PROMPT_TMPL, prompt_type=PromptType.CHOICE_SELECT
+        )
         self.choice_select_prompt = CHOICE_SELECT_PROMPT
 
     def _postprocess_nodes(
