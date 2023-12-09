@@ -2,6 +2,7 @@
 This file containts various prompts for agents and other llms.
 """
 
+
 AGENT_SYSTEM_PROMPT_TEMPLATE = """PREFACE:
 -~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~-~
 You are an agent described by the YOUR_ROLE section below.

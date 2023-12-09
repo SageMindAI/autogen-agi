@@ -11,7 +11,7 @@ stored_documents.pkl
 author_storage/**/*
 * copy*
 .cache
-docs
+docs/autogen
 groupchat
 storage
 NEW_TEST_DIR

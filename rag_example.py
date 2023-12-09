@@ -11,13 +11,12 @@ load_dotenv()
 STORAGE_DIR = "./storage"
 DOCS_DIR = "./docs"
 
-# NOTE: This assumes you have an "autogen" directory under the "docs" directory with autogen content (ex: the autogen cloned repo)
-domain = "autogen"
-domain_description = "autonomous agent frameworks"
+domain = "llama_index"
+domain_description = "indexing and retrieval of documents for llms"
 
 
 def main():
-    question = "What is autogen?"
+    question = "How can I index various types of documents?"
     
     answer = get_informed_answer(
         question,
@@ -25,8 +24,8 @@ def main():
         storage_dir=STORAGE_DIR,
         domain=domain,
         domain_description=domain_description,
-        vector_top_k=10,
-        reranker_top_n=2,
+        vector_top_k=25,
+        reranker_top_n=5,
         rerank=True,
         fusion=True,
     )

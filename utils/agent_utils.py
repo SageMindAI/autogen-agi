@@ -1,3 +1,7 @@
+"""
+This file contains utility functions specific to autogen agents.
+"""
+
 import autogen
 from autogen import OpenAIWrapper
 from .misc import fix_broken_json
@@ -8,6 +12,9 @@ load_dotenv()
 
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 config_list3 = [
     {
@@ -25,7 +32,7 @@ config_list4 = [
 
 def get_end_intent(message):
 
-    TERMINATE_SYSTEM_MESSAGE = """You are an expert in text and sentiment analysis. Based on the provided text, please respond with whether the intent is to end/pause the conversation or contintue the conversation. If the text provides all-caps statements such as "TERMINATE" or "CONTINUE", prioritize these when assesing intent. Your response MUST be in JSON format, with the following format:
+    IS_TERMINATE_SYSTEM_PROMPT = """You are an expert in text and sentiment analysis. Based on the provided text, please respond with whether the intent is to end/pause the conversation or contintue the conversation. If the text provides all-caps statements such as "TERMINATE" or "CONTINUE", prioritize these when assesing intent. Your response MUST be in JSON format, with the following format:
     {{
         "analysis": <your analysis of the text>,
         "intent": "end" or "continue"
@@ -37,10 +44,11 @@ def get_end_intent(message):
 
     """
 
+    # TODO: Ensure JSON response with return_json param
     client = OpenAIWrapper(config_list=config_list4)
     response = client.create(
         messages=[
-            {"role": "system", "content": TERMINATE_SYSTEM_MESSAGE},
+            {"role": "system", "content": IS_TERMINATE_SYSTEM_PROMPT},
             {"role": "user", "content": message["content"]},
         ]
     )
@@ -50,7 +58,7 @@ def get_end_intent(message):
         json_response = json.loads(json_response)
     except Exception as error:
         json_response = fix_broken_json(json_response)
-    print("ANALYSIS: ", json_response["analysis"])
-    print("INTENT:", json_response["intent"])
+    logger.info("Termination analysis: %s", json_response["analysis"])
+    logger.info("Termination intent: %s", json_response["intent"])
     return json_response["intent"]
 

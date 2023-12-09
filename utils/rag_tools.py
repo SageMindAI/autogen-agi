@@ -251,10 +251,12 @@ def create_index(docs_dir, storage_dir):
         )
     )
     nodes = parser.get_nodes_from_documents(documents)
+
+    print("Creating index at:", storage_dir)
+    
     index = VectorStoreIndex(nodes)
 
     try:
-        print("Creating index at:", storage_dir)
         index.storage_context.persist(persist_dir=storage_dir)
     except Exception as e:
         logger.error(f"Error saving index: {e}")
