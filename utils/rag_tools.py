@@ -373,7 +373,8 @@ def get_retrieved_nodes(
     if rerank:
         retrieved_nodes = rerank_nodes(
             retrieved_nodes,
-            query_bundle,
+            query_str,
+            query_context,
             reranker_context,
             reranker_top_n,
             score_threshold,
@@ -425,7 +426,7 @@ def remove_duplicate_nodes(nodes):
     return nodes
 
 
-def rerank_nodes(nodes, query_bundle, context, top_n, score_threshold):
+def rerank_nodes(nodes, query_str, query_context, context, top_n, score_threshold):
     """
     Reranks the nodes based on the provided context and thresholds.
 
@@ -445,8 +446,18 @@ def rerank_nodes(nodes, query_bundle, context, top_n, score_threshold):
     reranker = ModifiedLLMRerank(
         choice_batch_size=5, top_n=top_n, service_context=context
     )
-    reranked_nodes = reranker.postprocess_nodes(nodes, query_bundle)
+    if query_context:
+        query_str = (
+            "\nQUESTION_CONTEXT:\n---------------------\n"
+            f"{query_context}\n"
+            "---------------------\n"
+            f"QUESTION:\n---------------------\n"
+            f"{query_str}\n"
+            "---------------------\n"
+        )
 
+    query_bundle = QueryBundle(query_str)
+    reranked_nodes = reranker.postprocess_nodes(nodes, query_bundle)
 
     logger.debug(f"RERANKED NODES:\n\n")
     for node in reranked_nodes:
@@ -461,10 +472,11 @@ def rerank_nodes(nodes, query_bundle, context, top_n, score_threshold):
         logger.debug(node_info)
 
     filtered_nodes = [node for node in reranked_nodes if node.score > score_threshold]
-    logger.info(f"Number of nodes after re-ranking and filtering: {len(filtered_nodes)}")
+    logger.info(
+        f"Number of nodes after re-ranking and filtering: {len(filtered_nodes)}"
+    )
 
     return filtered_nodes
-
 
 def get_informed_answer(
     question,
@@ -477,62 +489,68 @@ def get_informed_answer(
     rerank=False,
     fusion=False,
 ):
+    """
+    Retrieves an informed answer to the given question using the specified document directories and settings.
+
+    Args:
+        question (str): The question to retrieve an answer for.
+        docs_dir (str): The directory containing the documents to query.
+        storage_dir (str): The directory for storing the index.
+        domain (str, optional): The specific domain of the question.
+        domain_description (str, optional): The description of the domain.
+        vector_top_k (int): The number of top vectors to retrieve.
+        reranker_top_n (int): The number of top nodes to keep after reranking.
+        rerank (bool): Flag to perform reranking.
+        fusion (bool): Flag to perform fusion.
+
+    Returns:
+        str: The synthesized response to the question.
+    """
     service_context3_synthesizer = ServiceContext.from_defaults(llm=llm3_synthesizer)
     service_context4 = ServiceContext.from_defaults(llm=llm4)
-
     response_synthesizer_context = service_context4
 
-    if domain is None:
-        STORAGE_DIR = storage_dir
-        DOCS_DIR = docs_dir
-    else:
-        STORAGE_DIR = f"{storage_dir}/{domain}"
-        DOCS_DIR = f"{docs_dir}/{domain}"
+    storage_dir = f"{storage_dir}/{domain}" if domain else storage_dir
+    docs_dir = f"{docs_dir}/{domain}" if domain else docs_dir
 
-    # check if storage already exists
-    if not os.path.exists(STORAGE_DIR):
-        index = create_index(docs_dir=DOCS_DIR, storage_dir=STORAGE_DIR)
+    if not os.path.exists(storage_dir):
+        index = create_index(docs_dir=docs_dir, storage_dir=storage_dir)
     else:
-        # load the existing index
-        print("LOADING INDEX AT: ", STORAGE_DIR)
-        storage_context = StorageContext.from_defaults(persist_dir=STORAGE_DIR)
+        logger.info(f"Loading index at: {storage_dir}")
+        storage_context = StorageContext.from_defaults(persist_dir=storage_dir)
         index = load_index_from_storage(storage_context)
 
     nodes = None
-
-    while nodes is None:
+    max_retries = 3
+    attempt = 0
+    while nodes is None and attempt < max_retries:
         try:
             nodes = get_retrieved_nodes(
-                query_str=question,
-                index=index,
-                vector_top_k=vector_top_k,
-                reranker_top_n=reranker_top_n,
-                rerank=rerank,
-                fusion=fusion,
-                query_context=domain_description,
+                question,
+                index,
+                vector_top_k,
+                reranker_top_n,
+                rerank,
+                fusion,
+                domain_description,
             )
-        except (
-            IndexError
-        ) as e:  # This happens with the default re-ranker, but not the modified one due to the JSON response
-            print("INDEX ERROR: ", e)
-            continue
+        except IndexError as e:  # This happens with the default re-ranker, but not the modified one due to the JSON response
+            logger.error(f"Index error: {e}")
+            attempt += 1
 
-    # print("NODES:\n\n")
-    # for node in nodes:
-    #     print(node)
-    #     print("\n\n")
+    if nodes is None:
+        raise RuntimeError("Failed to retrieve nodes after multiple attempts.")
 
-    print("\nRAG QUESTION:\n\n")
-    print(question)
+    logger.info(f"\nRAG Question:\n{question}")
 
-    if domain is None or domain_description is None:
-        text_qa_template_str = GENERAL_QA_PROMPT_TMPL_STR
-    else:
-        data = {
-            "domain": domain,
-            "domain_description": domain_description,
-        }
-        text_qa_template_str = format_incrementally(DOMAIN_QA_PROMPT_TMPL_STR, data)
+    text_qa_template_str = (
+        GENERAL_QA_PROMPT_TMPL_STR
+        if domain is None or domain_description is None
+        else format_incrementally(
+            DOMAIN_QA_PROMPT_TMPL_STR,
+            {"domain": domain, "domain_description": domain_description},
+        )
+    )
     text_qa_template = PromptTemplate(text_qa_template_str)
 
     response_synthesizer = get_response_synthesizer(

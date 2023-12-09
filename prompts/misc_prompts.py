@@ -320,7 +320,8 @@ CHOICE_SELECT_PROMPT_TMPL = (
     "A QUESTION is also provided. \n"
     "Please give a detailed analysis comparing each document to the context of the QUESTION, talking through your thoughts step by step, and rate each document on a scale of 1-10 based on how relevant you think \n"
     "the DOCUMENT_CONTENT is to the context of the QUESTION.  \n"
-    "Do not include any documents that are not relevant to the question. \n"
+    "Do not include any documents that are not relevant to the QUESTION. \n"
+    "If QUESTION_CONTEXT is provided, use it to enrich the detail and quality of your analysis. \n"
     "Your response must be a JSON object with the following format: \n"
     "{{\n"
     '    "answer": [\n'
@@ -382,6 +383,7 @@ CHOICE_SELECT_PROMPT_TMPL = (
     "    ]\n"
     "}}\n\n"
     "IMPORTANT: MAKE SURE the 'document_number' value in your response corresponds to the correct DOCUMENT_NUMBER. \n\n"
+    "IMPORTANT: Remember to consider and comment on the QUESTION_CONTEXT in your analysis if it is provided. \n\n"
     "DOCUMENTS:\n"
     "{context_str}\n"
     "QUESTION: {query_str}\n"
