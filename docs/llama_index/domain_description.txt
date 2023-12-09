@@ -1,0 +1,28 @@
+LlamaIndex is a data framework for LLM-based applications to ingest, structure, and access private or domain-specific data. It’s available in Python (these docs) and Typescript.
+
+🚀 Why LlamaIndex?
+LLMs offer a natural language interface between humans and data. Widely available models come pre-trained on huge amounts of publicly available data like Wikipedia, mailing lists, textbooks, source code and more.
+
+However, while LLMs are trained on a great deal of data, they are not trained on your data, which may private or specific to the problem you’re trying to solve. It’s behind APIs, in SQL databases, or trapped in PDFs and slide decks.
+
+LlamaIndex solves this problem by connecting to these data sources and adding your data to the data LLMs already have. This is often called Retrieval-Augmented Generation (RAG). RAG enables you to use LLMs to query your data, transform it, and generate new insights. You can ask questions about your data, create chatbots, build semi-autonomous agents, and more. To learn more, check out our Use Cases on the left.
+
+🦙 How can LlamaIndex help?
+LlamaIndex provides the following tools:
+
+Data connectors ingest your existing data from their native source and format. These could be APIs, PDFs, SQL, and (much) more.
+
+Data indexes structure your data in intermediate representations that are easy and performant for LLMs to consume.
+
+Engines provide natural language access to your data. For example: - Query engines are powerful retrieval interfaces for knowledge-augmented output. - Chat engines are conversational interfaces for multi-message, “back and forth” interactions with your data.
+
+Data agents are LLM-powered knowledge workers augmented by tools, from simple helper functions to API integrations and more.
+
+Application integrations tie LlamaIndex back into the rest of your ecosystem. This could be LangChain, Flask, Docker, ChatGPT, or… anything else!
+
+👨‍👩‍👧‍👦 Who is LlamaIndex for?
+LlamaIndex provides tools for beginners, advanced users, and everyone in between.
+
+Our high-level API allows beginner users to use LlamaIndex to ingest and query their data in 5 lines of code.
+
+For more complex applications, our lower-level APIs allow advanced users to customize and extend any module—data connectors, indices, retrievers, query engines, reranking modules—to fit their needs.
