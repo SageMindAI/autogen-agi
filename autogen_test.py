@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Load LLM configuration from environment or a file
-config_list = config_list_from_json(env_or_file="OAI_CONFIG_LIST")
+config_list = config_list_from_json(env_or_file="OAI_CONFIG_LIST.json")
 llm_config = {"config_list": config_list}
 
 # Create an AssistantAgent instance
