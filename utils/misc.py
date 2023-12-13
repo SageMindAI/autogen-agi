@@ -10,42 +10,14 @@ from autogen import OpenAIWrapper
 from time import sleep
 
 from llama_index.llms import OpenAI
-from typing import Callable, List, Optional, Tuple, Any
 
-from llama_index import (
-    VectorStoreIndex,
-    SimpleDirectoryReader,
-    StorageContext,
-    load_index_from_storage,
-    ServiceContext,
-    llms,
-    prompts,
-    indices,
-    retrievers,
-    response_synthesizers,
-)
-from llama_index.prompts.prompt_type import PromptType
-from llama_index.bridge.pydantic import BaseModel
-from llama_index.prompts.base import BasePromptTemplate, PromptTemplate
-from llama_index.indices.postprocessor import LLMRerank
-from llama_index.schema import BaseNode, NodeWithScore, MetadataMode
-from llama_index.indices.query.schema import QueryBundle
-from llama_index.retrievers import VectorIndexRetriever
-from llama_index.llm_predictor import LLMPredictor
-from llama_index.response_synthesizers import (
-    ResponseMode,
-    get_response_synthesizer,
-)
-from llama_index.prompts import PromptTemplate
 import logging
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
-
 logger = logging.getLogger(__name__)
-
 
 config_list3 = [
     {

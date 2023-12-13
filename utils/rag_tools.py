@@ -1,5 +1,5 @@
 """
-DESCRIPTION: This file contains functions for Retriever-Augmented Generation (RAG).
+This file contains functions for Retriever-Augmented Generation (RAG).
 """
 # Standard Library Imports
 import os

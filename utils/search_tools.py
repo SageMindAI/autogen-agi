@@ -12,7 +12,6 @@ from prompts.misc_prompts import (
     RESEARCH_AGENT_SUMMARIZE_REPO_PROMPT
 )
 
-from utils.ddgsearch import ddgsearch
 from duckduckgo_search import DDGS
 from serpapi import GoogleSearch
 
@@ -377,7 +376,8 @@ def wait_for_resource(file_path):
 
 # TODO: Implement this function for general domain knowledge searches
 def research_domain_knowledge(domain_description):
-    ddgsearch(domain_description, SEARCH_RESULTS_FILE, 10, False)
+    # TODO: The current (unimplemented) approach is to asnychronously scrape the web for domain knowledge and then parse each page for useful information.
+    # ddgsearch(domain_description, SEARCH_RESULTS_FILE, 10, False)
 
     url_descriptions = wait_for_resource(SEARCH_RESULTS_FILE)
 

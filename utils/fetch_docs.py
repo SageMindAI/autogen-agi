@@ -1,3 +1,7 @@
+"""
+This script is used to fetch and save documentation pages from the web.
+"""
+
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -19,7 +23,6 @@ def scrape_documentation_page(url):
     docs_transformed = bs_transformer.transform_documents(html, tags_to_extract=tags_to_extract)
 
     return docs_transformed[0].page_content
-
 
 
 def fetch_and_save(url, base_url, folder, downloaded):
