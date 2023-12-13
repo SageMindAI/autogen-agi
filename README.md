@@ -10,7 +10,7 @@ AutoGen AGI focuses on advancing the [AutoGen framework](https://github.com/micr
 - **Agent Council**: Utilizes a council of agents for decision-making and speaker/actor selection. Based on a prompting technique explored in [this blog post](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs).
 - **Conversation Continuity**: Supports loading and continuation of chat histories.
 - **Agent Team Awareness**: Each agent is aware of its role and the roles of its peers, enhancing team-based problem-solving.
-- **Advanced RAG**: Built in Retrieval Augmented Generation (RAG) leveraging [RAG-fusion](https://towardsdatascience.com/forget-rag-the-future-is-rag-fusion-1147298d8ad1) and llm re-ranking.
+- **Advanced RAG**: Built in Retrieval Augmented Generation (RAG) leveraging [RAG-fusion](https://towardsdatascience.com/forget-rag-the-future-is-rag-fusion-1147298d8ad1) and llm re-ranking implemented via [llama_index](https://www.llamaindex.ai/).
 - **Domain Discovery**: Built in domain discovery for knowledge outside of llm training data.
 - **Custom Agents**: A growing list of customized agents.
 
@@ -57,9 +57,27 @@ python example_rag.py
 python autogen_standard_group_chat.py
 ```
 
+## Methodology
+The evolution of this project has kept to a simple methodology so far. Mainly: 
+1) Test increasingly complex tasks.
+2) Observe the current limitations of the agents/framework.
+3) Add specific agents/features to overcome those limitations.
+4) Generalize features to be more scalable.
+
+For an example of a future possible evolution: discover what team of agents seems most successful at accomplishing more and more complex tasks, then provide those agent prompts as input for dynamic agent generation.
 
 ## Contributing
 Contributions are welcome! Please read our contributing guidelines for instructions on how to make a contribution.
+
+## TODO
+
+- [ ] Expand research and discovery to support more resources (such as arxiv) and select the resource dynamically.
+- [ ] Support chat history overflow. This would reflect a MemGPT like system where the overflow history would stay summarized in the context with relevant overflow data pulled in (via RAG) as needed.
+- [ ] If possible, support smaller context windows and open source LLMs.
+- [ ] Add ability to dynamically inject agents as needed.
+- [ ] Add ability to spawn off agent teams as needed.
+- [ ] Add support for communication and resource sharing between agent teams.
+
 
 ## License
 
