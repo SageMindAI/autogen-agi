@@ -1,6 +1,7 @@
-# AutoGen AGI
+<p align="center"><a href="https://resthapi.com" target="_blank" rel="noopener noreferrer"><img width="367" height="367" src="https://github.com/metamind-ai/autogen-agi/assets/12631935/091b52b9-033c-48f6-ab61-1cff2e3f434f" alt="autogen-api logo"></a></p>
 
-## Introduction
+
+
 AutoGen AGI focuses on advancing the AutoGen framework for multi-agent conversational systems, with an eye towards characteristics of Artificial General Intelligence (AGI). This project introduces modifications to AutoGen, enhancing group chat dynamics among autonomous agents and increasing their proficiency in complex tasks. The aim is to explore and incrementally advance agent behaviors, aligning them more closely with elements reminiscent of AGI.
 
 
