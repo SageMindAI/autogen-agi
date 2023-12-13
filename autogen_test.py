@@ -1,3 +1,7 @@
+"""
+This is a basic autogen example.
+"""
+
 # filename: autonomous_agents_integration.py
 from autogen import AssistantAgent, UserProxyAgent, config_list_from_json
 from dotenv import load_dotenv
@@ -20,7 +24,7 @@ user_proxy = UserProxyAgent(
     name="user_proxy",
     human_input_mode="NEVER",  # No human input will be solicited
     max_consecutive_auto_reply=10,  # Maximum number of consecutive auto-replies
-    code_execution_config={"work_dir": "coding"},  # Working directory for code execution
+    code_execution_config={"work_dir": "working"},  # Working directory for code execution
     llm_config=llm_config,  # LLM configuration for generating replies
 )
 

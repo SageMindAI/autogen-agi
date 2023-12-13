@@ -1,3 +1,7 @@
+"""
+This script demonstrates the rag tools available in this project. The rag tool searches the docs directory for a sub directory that matches the domain name and uses the available documents to performa a RAG (Retrieval Augmented Generation) query. By default the search domain of "llama_index" is available.
+"""
+
 from dotenv import load_dotenv
 import logging
 
@@ -11,9 +15,10 @@ load_dotenv()
 STORAGE_DIR = "./storage"
 DOCS_DIR = "./docs"
 
-domain = "llama_index"
-domain_description = "indexing and retrieval of documents for llms"
+# NOTE: If you run "python example_research.py", most likely you will then be able to set the domain to "autogen" for autogen related queries
 
+domain = "autogen"
+domain_description = "indexing and retrieval of documents for llms"
 
 def main():
     question = "How can I index various types of documents?"
