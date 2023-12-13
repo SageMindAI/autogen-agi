@@ -28,10 +28,22 @@ This project leverages agents that have access to execute code locally. In addit
   - copy `OAI_CONFIG_LIST.json.example` to `OAI_CONFIG_LIST.json` and fill in your OPENAI_API_KEY (this will most likely be needed for the example task)
   
 ## Getting Started
-- To attempt to reproduce the functionality seen [in the demo](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs), run: `python autogen_modified_group_chat.py`.
-- If you would first like to see an example of the research/domain discovery functionality, run: `python example_research.py`.
-- If you want to see an example of the RAG functionality, run: `python example_rag.py`.
-- If you want to compare the demo functionality to standard autogen, run `pythong autogen_standard_group_chat.py`.
+- To attempt to reproduce the functionality seen [in the demo](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs):
+  ```bash
+  python autogen_modified_group_chat.py
+  ```
+- If you would first like to see an example of the research/domain discovery functionality:
+  ```bash
+  python example_research.py
+  ```
+- If you want to see an example of the RAG functionality:
+  ```bash
+  python example_rag.py
+  ```
+- If you want to compare the demo functionality to standard autogen:
+  ```bash
+  python autogen_standard_group_chat.py
+  ```
 
 
 ## Contributing
