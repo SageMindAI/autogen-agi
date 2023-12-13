@@ -10,7 +10,7 @@ AutoGen AGI focuses on advancing the [AutoGen framework](https://github.com/micr
 - **Agent Council**: Utilizes a council of agents for decision-making and speaker/actor selection. Based on a prompting technique explored in [this blog post](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs).
 - **Conversation Continuity**: Supports loading and continuation of chat histories.
 - **Agent Team Awareness**: Each agent is aware of its role and the roles of its peers, enhancing team-based problem-solving.
-- **Advanced RAG**: Built in Retrieval Augmented Generation (RAG) leveraging RAG-fusion and llm re-ranking.
+- **Advanced RAG**: Built in Retrieval Augmented Generation (RAG) leveraging [RAG-fusion](https://towardsdatascience.com/forget-rag-the-future-is-rag-fusion-1147298d8ad1) and llm re-ranking.
 - **Domain Discovery**: Built in domain discovery for knowledge outside of llm training data.
 - **Custom Agents**: A growing list of customized agents.
 
