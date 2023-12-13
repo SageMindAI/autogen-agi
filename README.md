@@ -22,6 +22,10 @@ For an example output see this post: https://www.reddit.com/r/AutoGenAI/comments
 This project leverages agents that have access to execute code locally. In addition it is based on the extended context window of gpt-4-turbo, which can be costly. Proceed at your own risk.
 
 ## Installation
+- clone the project:
+```bash
+git clone git@github.com:metamind-ai/autogen-agi.git
+```
 - (optional) create a conda environment:
 ```bash
 conda create --name autogen-agi python=3.11
