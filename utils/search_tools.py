@@ -13,7 +13,8 @@ from prompts.misc_prompts import (
 )
 
 from utils.ddgsearch import ddgsearch
-from duckduckgo_search import ddg, DDGS
+from duckduckgo_search import DDGS
+from serpapi import GoogleSearch
 
 from pprint import pprint
 import base64
@@ -39,6 +40,11 @@ logger = logging.getLogger(__name__)
 google_search_api_key = os.environ["GOOGLE_SEARCH_API_KEY"]
 google_custom_search_id = os.environ["GOOGLE_CUSTOM_SEARCH_ENGINE_ID"]
 github_personal_access_token = os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+serp_api_key = os.environ["SERP_API_KEY"]
+
+# get search enging from env and default to ddg
+default_search_engine = os.environ.get("SEARCH_ENGINE", "ddg")
+
 
 config_list3 = [
     {
@@ -67,26 +73,6 @@ COMM_DIR = "url_search_results"
 
 SEARCH_RESULTS_FILE = f"{COMM_DIR}\search_results.json"
 
-
-def check_for_resource(file_path):
-    # Check if the file exists
-    if os.path.exists(file_path):
-        return True
-    return False
-
-def wait_for_resource(file_path):
-    # Check if the flag file exists in the
-    while not os.path.exists(file_path):
-        print(f"Waiting for resource '{file_path}'...")
-        sleep(5)
-
-    # Read in the contents
-    with open(file_path, "r") as f:
-        contents = f.read()
-    # Delete the flag file
-    os.remove(file_path)
-
-    return contents
 
 def google_custom_search(query, numresults=10, start=1):
     search_url = "https://www.googleapis.com/customsearch/v1"
@@ -136,6 +122,88 @@ def google_github_search(query, numresults=10, page=1):
 
     return github_urls
 
+def serpapi_search(query, numresults=10, start=1, search_engine=default_search_engine):
+    params = {
+        'q': query,
+        'engine': search_engine,
+        'api_key': serp_api_key,
+        'num': numresults,
+        'start': start
+    }
+
+    search = GoogleSearch(params)
+    results = search.get_dict()
+
+    return results
+
+def serpapi_github_search(query, numresults=10, page=1, search_engine=default_search_engine):
+    logger.info("Searching serpapi for relevant github repos...")
+    excluded_urls = ["github.com/topics"]
+    query = f"{query} site:github.com"
+
+    start = (page - 1) * numresults + 1
+    github_urls = []
+
+    while len(github_urls) < numresults:
+        search_results = serpapi_search(query, numresults, start=start, search_engine=search_engine)
+
+        for result in search_results['organic_results']:
+            url = result['link']
+            if any(excluded_url in url for excluded_url in excluded_urls):
+                continue
+            if "github.com" in url and url not in github_urls:
+                github_urls.append(url)
+                if len(github_urls) >= numresults:
+                    return github_urls
+
+        start += numresults  # Increment start for pagination
+        if start > 50:
+            print("Maximum number of results reached.")
+            break
+
+    return github_urls
+
+def ddg_github_search(query, numresults=10):
+    logger.info("Searching duckduckgo for relevant github repos...")
+    excluded_urls = ["github.com/topics"]
+    query = f"{query} site:github.com"
+    
+    github_urls = []
+
+    # Initialize page count and results per page
+    page = 1
+    results_per_page = 5  # Adjust as needed
+
+    while len(github_urls) < numresults:
+        with DDGS() as ddgs:
+            try:
+                # Fetch a set number of results per 'page'
+                current_results = []
+                for result in ddgs.text(query, max_results=results_per_page * page):
+                    current_results.append(result)
+                # Only process the latest set of results
+                new_results = current_results[results_per_page * (page - 1):]
+
+                for result in new_results:
+                    url = result['href']
+                    if any(excluded in url for excluded in excluded_urls):
+                        continue
+                    if "github.com" in url and url not in github_urls:
+                        github_urls.append(url)
+                        if len(github_urls) >= numresults:
+                            return github_urls
+
+                page += 1
+
+            except Exception as e:
+                print(f"Error occurred: {e}")
+                continue
+
+    return github_urls
+
+"""
+This function fetches the repository details from the github API.
+"""
 def get_repo_details(repo_url):
     logger.info(f"Extracting repo details for: `{repo_url}`...")
     api_url = repo_url.replace("https://github.com/", "https://api.github.com/repos/")
@@ -159,8 +227,19 @@ def get_repo_details(repo_url):
     else:
         return None
 
-def search_github_repositories(query, numresults=10, current_page=1):
-    repo_urls = google_github_search(query, numresults, current_page)
+"""
+This function searches github using a supported search engine for repositories related to the query and then fetches the repository details from the github API.
+"""
+def search_github_repositories(query, numresults=10, current_page=1, search_engine=default_search_engine):
+    if search_engine == "google":
+        repo_urls = google_github_search(query, numresults, current_page)
+    elif search_engine == "ddg":
+        repo_urls = ddg_github_search(query, numresults)
+    elif search_engine == "serpapi":
+        repo_urls = serpapi_github_search(query, numresults, current_page, search_engine="google")
+    else:
+        raise Exception(f"Invalid search engine: {search_engine}")
+    
     repositories_info = []
 
     for url in repo_urls:
@@ -169,43 +248,6 @@ def search_github_repositories(query, numresults=10, current_page=1):
             repositories_info.append(repo_details)
 
     return repositories_info
-
-def ddg_github_search(query, numresults=10):
-    excluded_urls = ["github.com/topics"]
-
-    query = f"{query} site:github.com"
-    
-    github_urls = []
-
-    # Initialize page count and results per page
-    page = 1
-    results_per_page = 5  # Adjust as needed
-
-    while len(github_urls) < numresults:
-        with DDGS() as ddgs:
-            try:
-                # Fetch a set number of results per 'page'
-                current_results = [r for r in ddgs.text(query, max_results=results_per_page * page)]
-                # Only process the latest set of results
-                new_results = current_results[results_per_page * (page - 1):]
-
-                for result in new_results:
-                    url = result['href']
-                    if any(excluded in url for excluded in excluded_urls):
-                        continue
-                    if "github.com" in url and url not in github_urls:
-                        github_urls.append(url)
-                        if len(github_urls) >= numresults:
-                            return github_urls
-
-                page += 1
-                print("PAGE:", page, "RESULTS:", len(github_urls), "URLS:", github_urls, "\n")
-
-            except Exception as e:
-                print(f"Error occurred: {e}")
-                continue
-
-    return github_urls
 
 def download_repository(repo_url, directory):
     # Extract repo name from URL
@@ -227,7 +269,7 @@ This function searches github for repositories related to the domain description
 
 Returns the domain name and description of the top repository found.
 """
-def find_relevant_github_repo(domain_description, rating_threshold=6):
+def find_relevant_github_repo(domain_description, rating_threshold=6, search_engine=default_search_engine):
     repo_rating_response = []
     current_page = 0
     max_pages = 5
@@ -235,7 +277,7 @@ def find_relevant_github_repo(domain_description, rating_threshold=6):
         if current_page >= max_pages:
             raise Exception(f"Could not find a relevant repository for domain description: {domain_description}")
         current_page += 1
-        repos = search_github_repositories(domain_description, numresults=10, current_page=current_page)
+        repos = search_github_repositories(domain_description, numresults=10, current_page=current_page, search_engine=search_engine)
 
         # Truncate each repo readme to 5000 chars
         for repo in repos:
@@ -312,15 +354,34 @@ def find_relevant_github_repo(domain_description, rating_threshold=6):
 
     return domain_name, domain_description
 
+
+def check_for_resource(file_path):
+    # Check if the file exists
+    if os.path.exists(file_path):
+        return True
+    return False
+
+def wait_for_resource(file_path):
+    # Check if the flag file exists in the
+    while not os.path.exists(file_path):
+        print(f"Waiting for resource '{file_path}'...")
+        sleep(5)
+
+    # Read in the contents
+    with open(file_path, "r") as f:
+        contents = f.read()
+    # Delete the flag file
+    os.remove(file_path)
+
+    return contents
+
+# TODO: Implement this function for general domain knowledge searches
 def research_domain_knowledge(domain_description):
     ddgsearch(domain_description, SEARCH_RESULTS_FILE, 10, False)
 
     url_descriptions = wait_for_resource(SEARCH_RESULTS_FILE)
 
     url_descriptions = json.loads(url_descriptions)
-
-    # print("GOT URL DESCRIPTIONS: ", url_descriptions)
-
 
     # Convert the list of url descriptions to a string
     str_desc = ""
