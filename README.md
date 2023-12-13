@@ -6,7 +6,7 @@ AutoGen AGI focuses on advancing the AutoGen framework for multi-agent conversat
 
 ## Features
 - **Enhanced Group Chat**: Modified AutoGen classes for advanced group chat functionalities.
-- **Agent Council**: Utilizes a council of agents for decision-making and speaker/actor selection. Based on a prompting technique explored in this blog post: https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs.
+- **Agent Council**: Utilizes a council of agents for decision-making and speaker/actor selection. Based on a prompting technique explored in [this blog post](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs).
 - **Conversation Continuity**: Supports loading and continuation of chat histories.
 - **Agent Team Awareness**: Each agent is aware of its role and the roles of its peers, enhancing team-based problem-solving.
 - **Advanced RAG**: Built in Retrieval Augmented Generation (RAG) leveraging RAG-fusion and llm re-ranking.
@@ -28,7 +28,7 @@ This project leverages agents that have access to execute code locally. In addit
   - copy `OAI_CONFIG_LIST.json.example` to `OAI_CONFIG_LIST.json` and fill in your OPENAI_API_KEY (this will most likely be needed for the example task)
   
 ## Getting Started
-- To attempt to reproduce the functionality seen in the demo, run: `python autogen_modified_group_chat.py`.
+- To attempt to reproduce the functionality seen [in the demo](#demo-transcript), run: `python autogen_modified_group_chat.py`.
 - If you would first like to see an example of the research/domain discovery functionality, run: `python example_research.py`.
 - If you want to see an example of the RAG functionality, run: `python example_rag.py`.
 - If you want to compare the demo functionality to standard autogen, run `pythong autogen_standard_group_chat.py`.
