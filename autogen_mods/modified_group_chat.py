@@ -31,7 +31,21 @@ RESET_COLOR = attr("reset")
 
 logger = logging.getLogger(__name__)
 
+logging.basicConfig(level=logging.INFO)
 
+
+"""
+ModifiedGroupChat and ModifiedGroupChatManager are modified versions of GroupChat and GroupChatManager that support additional functionality such as:
+
+- continue_chat: If True, the chat history will be loaded from the most recent file in the groupchat_name directory. If False, the chat history will not be loaded.
+- summarize_agent_descriptions: If True, the agent descriptions will be summarized using the light_llm4_wrapper function.
+- use_agent_council: If True, the agent council will be used to select the next speaker.
+- inject_agent_council: If True, the agent council discussion will be injected into the message history (requires use_agent_council to be True).
+
+
+In addition, the following modifications are made:
+- All agents are given the same system prompt template, which includes the agent team list and the agent's own description. This allows agents to be aware that they are working as a team.
+"""
 class ModifiedGroupChat(GroupChat):
     def __init__(
         self,
@@ -43,16 +57,16 @@ class ModifiedGroupChat(GroupChat):
         admin_name: str = "Admin",
         func_call_filter: bool = True,
         summarize_agent_descriptions: bool = False,
-        persona_discussion: bool = False,
-        inject_persona_discussion: bool = False,
+        use_agent_council: bool = False,
+        inject_agent_council: bool = False,
     ):
         super().__init__(agents, messages, max_round, admin_name, func_call_filter)
 
         self.group_name = group_name
         self.continue_chat = continue_chat
         self.summarize_agent_descriptions = summarize_agent_descriptions
-        self.persona_discussion = persona_discussion
-        self.inject_persona_discussion = inject_persona_discussion
+        self.use_agent_council = use_agent_council
+        self.inject_agent_council = inject_agent_council
         self.agent_descriptions = []
         self.agent_team_description = ""
         self.manager = None
@@ -62,10 +76,6 @@ class ModifiedGroupChat(GroupChat):
         self.start_time = time.strftime(
             "%Y-%m-%d_%H-%M-%S", time.localtime(self.start_time)
         )
-
-        # Load in the chat history if continue_chat is True
-        # if self.continue_chat:
-        #     self.load_chat_history(file_path=None)
 
         # Generate agent descriptions based on configuration
         for agent in agents:
@@ -92,13 +102,6 @@ class ModifiedGroupChat(GroupChat):
             f"{'*' * 20}\nAGENT_NAME: {agent['name']}\nAGENT_DESCRIPTION: {agent['description']}\n{self.describe_agent_actions(agent)}{'*' * 20}\n"
             for agent in self.agent_descriptions
         ]
-
-        # Introduce the agent team
-        # agent_team_description = AGENT_TEAM_DESCRIPTION.format(
-        #     agent_team_list="\n".join(self.agent_team_list)
-        # )
-
-        # AGENT_SYSTEM_MESSAGE_WITH_TEAM = f"{AGENT_SYSTEM_MESSAGE}\n\n{agent_team_description}"
 
         # Update each agent's system message with the team preface
         for agent in agents:
@@ -128,10 +131,10 @@ class ModifiedGroupChat(GroupChat):
             agent.update_system_message(agent_system_message)
 
         # display each agent's system message
-        # for agent in agents:
-        #     print(
-        #         f"{COLOR_INFO}AGENT_SYSTEM_MESSAGE:{RESET_COLOR}\n{agent.system_message}\n\n\n\n"
-        #     )
+        for agent in agents:
+            logger.debug(
+                f"{COLOR_INFO}AGENT_SYSTEM_MESSAGE:{RESET_COLOR}\n{agent.system_message}\n\n\n\n"
+            )
 
     def describe_agent_actions(self, agent: ConversableAgent):
         callable_functions = agent["llm_config"].get("functions", False)
@@ -154,7 +157,7 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
         agent_team = self._participant_roles()
         agent_names = [agent.name for agent in agents]
 
-        if self.persona_discussion:
+        if self.use_agent_council:
             all_agent_functions = []
             # loop through each agent and get their functions
             for agent in agents:
@@ -232,7 +235,7 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
 
         get_next_actor_message = ""
 
-        if self.persona_discussion:
+        if self.use_agent_council:
             get_next_actor_content = AGENT_COUNCIL_DISCUSSION_PROMPT.format(
                 task_goal=self.messages[0]["content"],
                 agent_team=self._participant_roles(),
@@ -252,8 +255,8 @@ FUNCTION_ARGUMENTS: {function["parameters"]}
         print(
             f"{COLOR_AGENT_COUNCIL_RESPONSE}AGENT_COUNCIL_RESPONSE:{RESET_COLOR}\n{response}\n"
         )
-        if self.persona_discussion:
-            if self.inject_persona_discussion:
+        if self.use_agent_council:
+            if self.inject_agent_council:
                 # Inject the persona discussion into the message history
                 header = f"####\nSOURCE_AGENT: AGENT_COUNCIL\n####"
                 response = f"{header}\n\n" + response

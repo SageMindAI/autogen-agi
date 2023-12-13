@@ -253,7 +253,7 @@ def create_index(docs_dir, storage_dir):
     nodes = parser.get_nodes_from_documents(documents)
 
     print("Creating index at:", storage_dir)
-    
+
     index = VectorStoreIndex(nodes)
 
     try:
@@ -379,12 +379,12 @@ def get_retrieved_nodes(
 
     if rerank:
         retrieved_nodes = rerank_nodes(
-            retrieved_nodes,
-            query_str,
-            query_context,
-            reranker_context,
-            reranker_top_n,
-            score_threshold,
+            nodes=retrieved_nodes,
+            query_str=query_str,
+            query_context=query_context,
+            context=reranker_context,
+            top_n=reranker_top_n,
+            score_threshold=score_threshold,
         )
 
     total_tokens = sum(count_token(node.text) for node in retrieved_nodes)
@@ -433,7 +433,7 @@ def remove_duplicate_nodes(nodes):
     return nodes
 
 
-def rerank_nodes(nodes, query_str, query_context, context, top_n, score_threshold):
+def rerank_nodes(nodes, query_str, query_context, context, top_n, score_threshold=5):
     """
     Reranks the nodes based on the provided context and thresholds.
 
@@ -484,6 +484,7 @@ def rerank_nodes(nodes, query_str, query_context, context, top_n, score_threshol
     )
 
     return filtered_nodes
+
 
 def get_informed_answer(
     question,
@@ -541,7 +542,9 @@ def get_informed_answer(
                 fusion,
                 domain_description,
             )
-        except IndexError as e:  # This happens with the default re-ranker, but not the modified one due to the JSON response
+        except (
+            IndexError
+        ) as e:  # This happens with the default re-ranker, but not the modified one due to the JSON response
             logger.error(f"Index error: {e}")
             attempt += 1
 

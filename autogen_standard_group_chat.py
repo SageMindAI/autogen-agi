@@ -1,4 +1,8 @@
-import autogen
+"""
+This is an example of a standard group chat using some of the agents in the agents/agents.py file. Compare these results to the results from autogen_modified_group_chat.py.
+"""
+import logging
+import os
 
 from autogen import GroupChat, GroupChatManager
 
@@ -24,7 +28,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-import os
+logging.basicConfig(level=logging.INFO)
+
 
 config_list3 = [
     {

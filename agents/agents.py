@@ -1,6 +1,4 @@
 import autogen
-import requests
-import subprocess
 
 from prompts.agent_prompts import (
     PYTHON_EXPERT_SYSTEM_PROMPT,
@@ -19,31 +17,14 @@ from prompts.agent_prompts import (
     TASK_COMPREHENSION_AGENT_SYSTEM_PROMPT,
 )
 
-from autogen import OpenAIWrapper
-
-from utils.ddgsearch import ddgsearch
-from duckduckgo_search import ddg, DDGS
-
-from pprint import pprint
-import base64
-
-from time import sleep
-
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import os
 import copy
-import json
 
 from utils.agent_utils import get_end_intent
-from utils.misc import (
-    light_llm_wrapper,
-    light_gpt4_wrapper_autogen,
-    light_llm4_wrapper,
-    extract_json_response,
-)
 
 from agents.agent_functions import (
     agent_functions,
@@ -55,10 +36,6 @@ from agents.agent_functions import (
     execute_code_block,
     consult_archive_agent,
 )
-
-from utils.rag_tools import get_informed_answer
-
-from utils.fetch_docs import fetch_and_save
 
 google_search_api_key = os.environ["GOOGLE_SEARCH_API_KEY"]
 google_custom_search_id = os.environ["GOOGLE_CUSTOM_SEARCH_ENGINE_ID"]
@@ -83,13 +60,6 @@ llm_config4 = {
     "config_list": config_list4,
     "temperature": 0.1,
 }
-
-WORK_DIR = "working"
-DOMAIN_KNOWLEDGE_DOCS_DIR = "docs"
-DOMAIN_KNOWLEDGE_STORAGE_DIR = "storage"
-COMM_DIR = "url_search_results"
-
-SEARCH_RESULTS_FILE = f"{COMM_DIR}\search_results.json"
 
 user_proxy = autogen.UserProxyAgent(
     name="UserProxy",
