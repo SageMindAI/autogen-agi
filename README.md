@@ -25,6 +25,7 @@ This project leverages agents that have access to execute code locally. In addit
 - clone the project:
 ```bash
 git clone git@github.com:metamind-ai/autogen-agi.git
+cd autogen-agi
 ```
 - (optional) create a conda environment:
 ```bash
