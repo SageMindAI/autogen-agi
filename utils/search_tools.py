@@ -32,7 +32,7 @@ from utils.misc import (
     light_gpt4_wrapper_autogen,
 )
 
-from utils.fetch_docs import fetch_and_save
+# from utils.fetch_docs import fetch_and_save
 
 logger = logging.getLogger(__name__)
 
@@ -441,8 +441,8 @@ def research_domain_knowledge(domain_description):
     print(f"DOWNLOADING DOMAIN CONTENT FOR DOMAIN: {domain_name}...")
 
     # Download the domain content to the domain directory
-    for i, url in enumerate(top_5_urls):
-        fetch_and_save(url["url"], url["url"], domain_dir, set())
+    # for i, url in enumerate(top_5_urls):
+    #     fetch_and_save(url["url"], url["url"], domain_dir, set())
 
     print(f"DOMAIN CONTENT DOWNLOADED FOR DOMAIN: {domain_name}.")
 

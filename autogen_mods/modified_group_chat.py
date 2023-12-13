@@ -31,8 +31,6 @@ RESET_COLOR = attr("reset")
 
 logger = logging.getLogger(__name__)
 
-logging.basicConfig(level=logging.INFO)
-
 
 """
 ModifiedGroupChat and ModifiedGroupChatManager are modified versions of GroupChat and GroupChatManager that support additional functionality such as:
