@@ -17,7 +17,7 @@ DOCS_DIR = "./docs"
 
 # NOTE: If you run "python example_research.py", most likely you will then be able to set the domain to "autogen" for autogen related queries
 
-domain = "autogen"
+domain = "llama_index"
 domain_description = "indexing and retrieval of documents for llms"
 
 def main():
