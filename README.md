@@ -38,7 +38,15 @@ pip install -r requirements.txt
 ```
 - add environment variables
   - copy `.env.example` to `.env` and fill in your values
+    ```bash
+    mv .env.example .env
+    ```
   - copy `OAI_CONFIG_LIST.json.example` to `OAI_CONFIG_LIST.json` and fill in your OPENAI_API_KEY (this will most likely be needed for the example task)
+    ```bash
+    mv OAI_CONFIG_LIST.json.example OAI_CONFIG_LIST.json
+    ```
+
+All set!!
  
 *NOTE*: 
 - visit https://serpapi.com/ to get your own API key (optional)
