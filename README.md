@@ -77,7 +77,7 @@ The evolution of this project has kept to a simple methodology so far. Mainly:
 3) Add specific agents/features to overcome those limitations.
 4) Generalize features to be more scalable.
 
-For an example of a future possible evolution: discover what team of agents seems most successful at accomplishing more and more complex tasks, then provide those agent prompts as input for dynamic agent generation.
+For an example of a future possible evolution: discover what team of agents seems most successful at accomplishing more and more complex tasks, then provide those agent prompts few-shot learning examples in a dynamic agent generation prompt.
 
 ## Contributing 🤝
 Contributions are welcome! Please read our contributing guidelines for instructions on how to make a contribution.
