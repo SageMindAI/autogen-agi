@@ -6,22 +6,22 @@ AutoGen AGI focuses on advancing the [AutoGen framework](https://github.com/micr
 
 
 ## Features
-- **Enhanced Group Chat**: Modified AutoGen classes for advanced group chat functionalities.
-- **Agent Council**: Utilizes a council of agents for decision-making and speaker/actor selection. Based on a prompting technique explored in [this blog post](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs).
-- **Conversation Continuity**: Supports loading and continuation of chat histories.
-- **Agent Team Awareness**: Each agent is aware of its role and the roles of its peers, enhancing team-based problem-solving.
-- **Advanced RAG**: Built in Retrieval Augmented Generation (RAG) leveraging [RAG-fusion](https://towardsdatascience.com/forget-rag-the-future-is-rag-fusion-1147298d8ad1) and llm re-ranking implemented via [llama_index](https://www.llamaindex.ai/).
-- **Domain Discovery**: Built in domain discovery for knowledge outside of llm training data.
-- **Custom Agents**: A growing list of customized agents.
+- **Enhanced Group Chat** 💬: Modified AutoGen classes for advanced group chat functionalities.
+- **Agent Council** 🧙: Utilizes a council of agents for decision-making and speaker/actor selection. Based on a prompting technique explored in [this blog post](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs).
+- **Conversation Continuity** 🔄: Supports loading and continuation of chat histories.
+- **Agent Team Awareness** 👥: Each agent is aware of its role and the roles of its peers, enhancing team-based problem-solving.
+- **Advanced RAG** 📚: Built in Retrieval Augmented Generation (RAG) leveraging [RAG-fusion](https://towardsdatascience.com/forget-rag-the-future-is-rag-fusion-1147298d8ad1) and llm re-ranking implemented via [llama_index](https://www.llamaindex.ai/).
+- **Domain Discovery** 🔍: Built in domain discovery for knowledge outside of llm training data.
+- **Custom Agents** 🌟: A growing list of customized agents.
 
 
-## Demo Transcript
+## Demo Transcript 📜
 For an example output see this post: https://www.reddit.com/r/AutoGenAI/comments/186cft9/autogen_executing_autogen/
 
-## WARNING
+## WARNING ⚠️
 This project leverages agents that have access to execute code locally. In addition it is based on the extended context window of gpt-4-turbo, which can be costly. Proceed at your own risk.
 
-## Installation
+## Installation 🛠️
 - clone the project:
 ```bash
 git clone git@github.com:metamind-ai/autogen-agi.git
@@ -46,13 +46,13 @@ pip install -r requirements.txt
     cp OAI_CONFIG_LIST.json.example OAI_CONFIG_LIST.json
     ```
 
-All set!!
+All set!! 🎉✨
  
 *NOTE*: 
 - visit https://serpapi.com/ to get your own API key (optional)
 - visit https://programmablesearchengine.google.com/controlpanel/create to get your own API key (optional)
   
-## Getting Started
+## Getting Started 🚀
 - To attempt to reproduce the functionality seen [in the demo](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs):
 ```bash
 python autogen_modified_group_chat.py
@@ -70,7 +70,7 @@ python example_rag.py
 python autogen_standard_group_chat.py
 ```
 
-## Methodology
+## Methodology 🔍
 The evolution of this project has kept to a simple methodology so far. Mainly: 
 1) Test increasingly complex tasks.
 2) Observe the current limitations of the agents/framework.
@@ -79,10 +79,10 @@ The evolution of this project has kept to a simple methodology so far. Mainly:
 
 For an example of a future possible evolution: discover what team of agents seems most successful at accomplishing more and more complex tasks, then provide those agent prompts as input for dynamic agent generation.
 
-## Contributing
+## Contributing 🤝
 Contributions are welcome! Please read our contributing guidelines for instructions on how to make a contribution.
 
-## TODO
+## TODO 📝
 
 - [ ] Expand research and discovery to support more resources (such as arxiv) and select the resource dynamically.
 - [ ] Support chat history overflow. This would reflect a MemGPT like system where the overflow history would stay summarized in the context with relevant overflow data pulled in (via RAG) as needed.
