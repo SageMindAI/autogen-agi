@@ -1,4 +1,4 @@
-<p align="center"><a href="https://resthapi.com" target="_blank" rel="noopener noreferrer"><img width="367" height="367" src="https://github.com/metamind-ai/autogen-agi/assets/12631935/091b52b9-033c-48f6-ab61-1cff2e3f434f" alt="autogen-api logo"></a></p>
+<p align="center"><a><img width="367" height="367" src="https://github.com/metamind-ai/autogen-agi/assets/12631935/091b52b9-033c-48f6-ab61-1cff2e3f434f" alt="autogen-api logo"></a></p>
 
 
 
