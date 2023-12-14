@@ -2,7 +2,7 @@
 
 
 
-AutoGen AGI focuses on advancing the [AutoGen framework](https://github.com/microsoft/autogen) for multi-agent conversational systems, with an eye towards characteristics of Artificial General Intelligence (AGI). This project introduces modifications to AutoGen, enhancing group chat dynamics among autonomous agents and increasing their proficiency in complex tasks. The aim is to explore and incrementally advance agent behaviors, aligning them more closely with elements reminiscent of AGI.
+AutoGen AGI focuses on advancing the [AutoGen framework](https://github.com/microsoft/autogen) for multi-agent conversational systems, with an eye towards characteristics of Artificial General Intelligence (AGI). This project introduces modifications to AutoGen, enhancing group chat dynamics among autonomous agents and increasing their proficiency in robustly handling complex tasks. The aim is to explore and incrementally advance agent behaviors, aligning them more closely with elements reminiscent of AGI.
 
 
 ## Features
