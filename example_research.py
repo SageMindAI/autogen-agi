@@ -11,4 +11,4 @@ logging.basicConfig(level=logging.INFO)
 # NOTE: visit https://serpapi.com/ to get your own API key
 # NOTE: visit https://programmablesearchengine.google.com/controlpanel/create to get your own API key
 
-domain, domain_description = find_relevant_github_repo("autogen python framework for autonomous AI agents", search_engine="ddg")
+domain, domain_description = find_relevant_github_repo("autogen python framework for autonomous AI agents")

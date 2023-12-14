@@ -205,9 +205,14 @@ This function fetches the repository details from the github API.
 """
 def get_repo_details(repo_url):
     logger.info(f"Extracting repo details for: `{repo_url}`...")
+    if not github_personal_access_token:
+        raise Exception("GITHUB_PERSONAL_ACCESS_TOKEN environment variable not set.")
     api_url = repo_url.replace("https://github.com/", "https://api.github.com/repos/")
     headers = {'Authorization': f'token {github_personal_access_token}'}
     repo_response = requests.get(api_url, headers=headers)
+    # handle 401 response
+    if repo_response.status_code == 401:
+        raise Exception("Invalid GITHUB_PERSONAL_ACCESS_TOKEN.")
     readme_response = requests.get(api_url + "/contents/README.md", headers=headers)
 
     if repo_response.status_code == 200 and readme_response.status_code == 200:

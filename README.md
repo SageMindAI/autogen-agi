@@ -49,8 +49,9 @@ pip install -r requirements.txt
 All set!! 🎉✨
  
 *NOTE*: 
-- visit https://serpapi.com/ to get your own API key (optional)
-- visit https://programmablesearchengine.google.com/controlpanel/create to get your own API key (optional)
+- 🔴 visit [GitHub docs](https://docs.github.com/en/enterprise-server@3.9/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) to get your GitHub personal access token (required)
+- ✅ visit https://serpapi.com/ to get your own API key (optional)
+- ✅ visit https://programmablesearchengine.google.com/controlpanel/create to get your own API key (optional)
   
 ## Getting Started 🚀
 - To attempt to reproduce the functionality seen [in the demo](https://www.prompthub.us/blog/exploring-multi-persona-prompting-for-better-outputs):

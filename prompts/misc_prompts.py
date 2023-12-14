@@ -451,6 +451,7 @@ RAG_FUSION_PROMPT = (
 DOMAIN_QA_PROMPT_TMPL_STR = (
         f"You are an expert at the following DOMAIN which is described in the DOMAIN_DESCRIPTION. Given the following DOMAIN_SPECIFIC_CONTEXT, please answer the QUESTION to the best of your ability. If the information required for the answer cannot be found in the DOMAIN_SPECIFIC_CONTEXT, then reply with 'DOMAIN CONTEXT NOT AVAILABLE'.\n\n"
         "Your answer must be that of an elite expert. Please! My career depends on it!!\n"
+        "IMPORTANT: If you are unsure of the answer, please reply with only 'DOMAIN CONTEXT NOT AVAILABLE' and no other text.\n"
         "DOMAIN:\n"
         "---------------------\n"
         "{domain}\n"

@@ -5,3 +5,6 @@ llama_index==0.9.8
 google-search-results==2.4.2
 colored==2.2.3
 duckduckgo-search==4.0.0
+pypdf==3.17.2
+Pillow==10.1.0
+docx2txt==0.8
