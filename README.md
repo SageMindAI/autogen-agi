@@ -97,6 +97,8 @@ Contributions are welcome! Please read our contributing guidelines for instructi
 ## Support ⭐
 Love what we're building with AutoGen AGI? Star this project on GitHub! Your support not only motivates us, but each star brings more collaborators to this venture. More collaboration means accelerating our journey towards advanced AI and closer to AGI. Let's push the boundaries of AI together! ⭐
 
+## News 📰
+- [Check out our blog post for the project launch](https://medium.com/@headley.justin/from-autogpt-to-agi-the-evolutionary-journey-of-autogen-3fefee6d2cc0)!
 
 ## License
 
