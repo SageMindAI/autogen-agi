@@ -20,7 +20,7 @@ In the following link you can see some example output of the demo task, which is
 - https://www.reddit.com/r/AutoGenAI/comments/186cft9/autogen_executing_autogen/
 
 
-<p align="center"><a><img width="1080" height="1080" src="https://github.com/metamind-ai/autogen-agi/assets/12631935/9458b016-9ef3-4bc4-a9c1-127c5c250abc" alt="agent council demo"></a></p>
+<p align="center"><a><img width="1080" src="https://github.com/metamind-ai/autogen-agi/assets/12631935/9458b016-9ef3-4bc4-a9c1-127c5c250abc" alt="agent council demo"></a></p>
 <p align="center">
 <i>Example transcript of an "Agent Council" discussion 🧙</i>
 </p>
