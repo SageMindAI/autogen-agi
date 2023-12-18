@@ -19,6 +19,13 @@ AutoGen AGI focuses on advancing the [AutoGen framework](https://github.com/micr
 In the following link you can see some example output of the demo task, which is to get a team of agents to write and execute another team of autogen agents: 
 - https://www.reddit.com/r/AutoGenAI/comments/186cft9/autogen_executing_autogen/
 
+
+<p align="center"><a><img width="1080" height="1080" src="https://github.com/metamind-ai/autogen-agi/assets/12631935/9458b016-9ef3-4bc4-a9c1-127c5c250abc" alt="agent council demo"></a></p>
+<p align="center">
+<i>Example transcript of an "Agent Council" discussion 🧙</i>
+</p>
+
+
 ## WARNING ⚠️
 This project leverages agents that have access to execute code locally. In addition it is based on the extended context window of gpt-4-turbo, which can be costly. Proceed at your own risk.
 
