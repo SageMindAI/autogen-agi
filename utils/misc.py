@@ -104,7 +104,7 @@ def light_llm4_wrapper(query, kwargs={}):
     return light_llm_wrapper(llm4, query)
 
 
-def light_gpt_wrapper_autogen(client, query, return_json=False, system_message=None):
+def light_gpt_wrapper_autogen(client: OpenAIWrapper, query, return_json=False, system_message=None):
     system_message = (
         system_message
         or "You are a helpful assistant. A user will ask a question, and you should provide an answer. ONLY return the answer, and nothing more."
@@ -125,8 +125,7 @@ def light_gpt_wrapper_autogen(client, query, return_json=False, system_message=N
     response = client.create(**create_kwargs)
 
     if return_json:
-        response = client.extract_text_or_function_call(response)
-        response = autogen.ConversableAgent._format_json_str(response)
+        response = autogen.ConversableAgent._format_json_str(response.choices[0].message.content)
         response = json.loads(response)
 
     return response
@@ -186,8 +185,7 @@ def fix_broken_json(potential_json, max_attempts=5):
                 response_format={"type": "json_object"},
                 messages=[{"role": "user", "content": FIX_JSON_PROMPT}],
             )
-            response = client.extract_text_or_function_call(response)
-            response = autogen.ConversableAgent._format_json_str(response)
+            response = autogen.ConversableAgent._format_json_str(response.choices[0].message.content)
             response = json.loads(response)
             return response
         except Exception as error:
@@ -198,8 +196,6 @@ def fix_broken_json(potential_json, max_attempts=5):
 
 
 def extract_json_response_oai_wrapper(message):
-    client = OpenAIWrapper(config_list=config_list3)
-    response = client.extract_text_or_function_call(message)
     response = autogen.ConversableAgent._format_json_str(response)
     try:
         response = json.loads(response)

@@ -52,8 +52,7 @@ def get_end_intent(message):
             {"role": "user", "content": message["content"]},
         ]
     )
-    response = client.extract_text_or_function_call(response)
-    json_response = autogen.ConversableAgent._format_json_str(response)
+    response = autogen.ConversableAgent._format_json_str(response.choices[0].message.content)
     try:
         json_response = json.loads(json_response)
     except Exception as error:
