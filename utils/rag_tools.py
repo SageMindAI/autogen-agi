@@ -5,7 +5,6 @@ This file contains functions for Retriever-Augmented Generation (RAG).
 import os
 import logging
 from typing import List, Optional, Tuple, Any
-from time import sleep
 
 # Third-Party Imports
 import openai
@@ -25,7 +24,6 @@ from llama_index.bridge.pydantic import BaseModel
 from llama_index.indices.postprocessor import LLMRerank
 from llama_index.indices.query.schema import QueryBundle
 from llama_index.llm_predictor import LLMPredictor
-from llama_index.llms import OpenAI
 from llama_index.node_parser import LangchainNodeParser
 from llama_index.prompts.base import BasePromptTemplate
 from llama_index.prompts import PromptTemplate
@@ -59,28 +57,7 @@ load_dotenv()
 # Logger setup
 logger = logging.getLogger(__name__)
 
-# OpenAI API key
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-
-# LLM Models Configuration
-LLM_CONFIGS = {
-    "gpt-3.5-turbo": {
-        "model": "gpt-3.5-turbo-1106",
-        "api_key": OPENAI_API_KEY,
-    },
-    "gpt-4": {
-        "model": "gpt-4-1106-preview",
-        "api_key": OPENAI_API_KEY,
-    },
-}
-
-# Instantiate LLM Models
-llm3_general = OpenAI(model=LLM_CONFIGS["gpt-3.5-turbo"]["model"], temperature=0.1)
-llm3_synthesizer = OpenAI(
-    model=LLM_CONFIGS["gpt-3.5-turbo"]["model"], temperature=0.1, max_tokens=1000
-)
-llm4 = OpenAI(model=LLM_CONFIGS["gpt-4"]["model"], temperature=0.5)
-
+from config.llm_config import llm_general, llm_synthesizer, llm_predictor, embed_model, USE_LOCAL_LLM
 
 class JSONLLMPredictor(LLMPredictor):
     """
@@ -115,17 +92,24 @@ class JSONLLMPredictor(LLMPredictor):
         if output_cls is not None:
             output = self._run_program(output_cls, prompt, **prompt_args)
         elif self._llm.metadata.is_chat_model:
+            print("IS CHAT MODEL")
             messages = prompt.format_messages(llm=self._llm, **prompt_args)
             messages = self._extend_messages(messages)
             chat_response = self._llm.chat(messages)
             output = chat_response.message.content or ""
         else:
+            print("NOT CHAT MODEL")
             formatted_prompt = prompt.format(llm=self._llm, **prompt_args)
             formatted_prompt = self._extend_prompt(formatted_prompt)
-            # return_json=True is the only difference from the original function and currently only applies to the latest OpenAI GPT 3.5 and 4 models.
-            response = self._llm.complete(formatted_prompt, return_json=True)
+            print("FORMATTED PROMPT:", formatted_prompt)
+            if USE_LOCAL_LLM:
+                response = self._llm.complete(formatted_prompt)
+            else:
+                # return_json=True is the only difference from the original function and currently only applies to the latest OpenAI GPT 3.5 and 4 models.
+                response = self._llm.complete(formatted_prompt, return_json=True)
             output = response.text
 
+        print("JSON PREDICT OUTPUT:", output)
         logger.debug(output)
         return output
 
@@ -167,6 +151,8 @@ class ModifiedLLMRerank(LLMRerank):
                 query_str=query_str,
             )
             json_response = extract_json_response(raw_response)
+            
+            print("JSON RESPONSE:", json_response)
 
             raw_choices, relevances = self._parse_choice_select_answer_fn(
                 json_response, len(nodes_batch)
@@ -219,7 +205,7 @@ class ModifiedLLMRerank(LLMRerank):
         return "\n\n".join(fmt_node_txts)
 
 
-def create_index(docs_dir, storage_dir):
+def create_index(docs_dir, storage_dir, service_context=None):
     """
     Creates an index from documents located in the specified directory.
 
@@ -254,7 +240,7 @@ def create_index(docs_dir, storage_dir):
 
     print("Creating index at:", storage_dir)
 
-    index = VectorStoreIndex(nodes)
+    index = VectorStoreIndex(nodes, service_context=service_context)
 
     try:
         index.storage_context.persist(persist_dir=storage_dir)
@@ -324,7 +310,7 @@ def get_retrieved_nodes(
     Returns:
         List: A list of retrieved nodes.
     """
-    json_llm_predictor = JSONLLMPredictor(llm=llm3_general)
+    json_llm_predictor = JSONLLMPredictor(llm=llm_predictor)
 
     service_context3_general = ServiceContext.from_defaults(
         llm_predictor=json_llm_predictor
@@ -514,19 +500,18 @@ def get_informed_answer(
     Returns:
         str: The synthesized response to the question.
     """
-    service_context3_synthesizer = ServiceContext.from_defaults(llm=llm3_synthesizer)
-    service_context4 = ServiceContext.from_defaults(llm=llm4)
-    response_synthesizer_context = service_context4
+
+    service_context = ServiceContext.from_defaults(llm=llm_synthesizer, embed_model=embed_model)
 
     storage_dir = f"{storage_dir}/{domain}" if domain else storage_dir
     docs_dir = f"{docs_dir}/{domain}" if domain else docs_dir
 
     if not os.path.exists(storage_dir):
-        index = create_index(docs_dir=docs_dir, storage_dir=storage_dir)
+        index = create_index(docs_dir=docs_dir, storage_dir=storage_dir, service_context=service_context)
     else:
         logger.info(f"Loading index at: {storage_dir}")
         storage_context = StorageContext.from_defaults(persist_dir=storage_dir)
-        index = load_index_from_storage(storage_context)
+        index = load_index_from_storage(storage_context, service_context=service_context)
 
     nodes = None
     max_retries = 3
@@ -566,7 +551,7 @@ def get_informed_answer(
     response_synthesizer = get_response_synthesizer(
         response_mode=ResponseMode.COMPACT,
         text_qa_template=text_qa_template,
-        service_context=response_synthesizer_context,
+        service_context=service_context,
     )
 
     response = response_synthesizer.synthesize(question, nodes=nodes)
