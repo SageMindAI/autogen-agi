@@ -79,7 +79,7 @@ groupchat = ModifiedGroupChat(
 )
 manager = ModifiedGroupChatManager(groupchat=groupchat, llm_config=llm_config4)
 
-# NOTE: If the agents succussfully run their own autogen script, you will have to give it some time to process then press enter to exit the nested script.
+# NOTE: If the agents successfully run their own autogen script, you will have to give it some time to process then press enter to exit the nested script.
 
 message = """I'm interested in building autonomous agents using the autogen python library. Can you show me a complete example of how to do this? The example should show how to correctly configure and instantiate autogen automous agents. The request given to the agents will be: "Please write and then execute a python script that prints 10 dad jokes". I want the agents to run completely autonomously without any human intervention."""
 
